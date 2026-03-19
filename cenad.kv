@@ -1,0 +1,28 @@
+# cenad.kv - Styles globaux Kivy pour CENAD
+# Couleurs principales : Bleu marine universitaire + Or
+
+#:kivy 2.0
+
+# Style global des boutons
+<Button>:
+    font_size: '13sp'
+    bold: True
+
+# Style global des TextInput
+<TextInput>:
+    background_active: ''
+    padding: [10, 10, 10, 10]
+
+# Style global des Spinner
+<Spinner>:
+    option_cls: 'SpinnerOption'
+
+<SpinnerOption>:
+    background_color: 0.12, 0.18, 0.45, 1
+    color: 1, 1, 1, 1
+    font_size: '12sp'
+    height: '44dp'
+
+# Style global des Label
+<Label>:
+    font_name: 'Roboto'
