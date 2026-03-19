@@ -4,7 +4,7 @@ package.name = cenad
 package.domain = mg.cenad
 
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,db
+source.include_exts = py,png,jpg,kv,atlas
 
 version = 1.0.0
 
@@ -14,14 +14,13 @@ orientation = portrait
 fullscreen = 0
 
 android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
-android.api = 33
+android.api = 31
 android.minapi = 21
 android.ndk = 25b
-android.sdk = 33
+android.sdk = 31
+android.ndk_api = 21
 android.archs = armeabi-v7a
-
-android.allow_backup = True
-android.logcat_filters = *:S python:D
+android.accept_sdk_license = True
 
 [buildozer]
 log_level = 2
