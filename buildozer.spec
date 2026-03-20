@@ -5,11 +5,11 @@ package.domain = org.cenad
 
 source.dir = .
 source.include_exts = py,kv,png,jpg,sqlite,db,csv,json
-source.include_patterns = assets/*,assets/icons/*,data/*,screens/*
+source.include_patterns = assets/*,assets/icons/*,data/*,screens/*,screens/__init__.py
 
 version = 1.0.0
 
-requirements = python3,kivy==2.3.0,kivymd,sqlite3,pandas,numpy,scipy,matplotlib,pillow
+requirements = python3,kivy==2.3.0,sqlite3,pandas,numpy,scipy,matplotlib,pillow
 
 orientation = portrait
 
