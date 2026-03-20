@@ -72,7 +72,7 @@ class HistoriqueScreen(Screen):
         content.bind(minimum_height=content.setter('height'))
 
         # Date fondation
-        self._add_section_card(content, "📅 Fondée en 2012",
+        self._add_section_card(content, "[Date] Fondée en 2012",
                                 "Antsiranana, Madagascar", "#1565C0")
 
         # Texte historique
@@ -90,7 +90,7 @@ class HistoriqueScreen(Screen):
 
         # Présidents
         pres_title = Label(
-            text="[b]👑 PRÉSIDENTS SUCCESSIFS[/b]", markup=True,
+            text="[b][Presidents] PRÉSIDENTS SUCCESSIFS[/b]", markup=True,
             font_size=dp(14), color=(1, 0.85, 0.1, 1),
             size_hint_y=None, height=dp(40)
         )
@@ -132,7 +132,7 @@ class HistoriqueScreen(Screen):
                                color=(1, 0.85, 0.1, 1), halign='left',
                                size_hint_y=None, height=dp(22),
                                text_size=(dp(280), None)))
-        card.add_widget(Label(text=f"🗓 {annees}", font_size=dp(11),
+        card.add_widget(Label(text=f"Date: {annees}", font_size=dp(11),
                                color=(0.6, 0.8, 1, 1), halign='left',
                                size_hint_y=None, height=dp(18),
                                text_size=(dp(280), None)))

@@ -1,5 +1,6 @@
 """
 screens/admin.py - Administration CRUD sécurisée par SHA-256
+Correction : sans emojis, clavier persistant
 """
 
 from kivy.uix.screenmanager import Screen
@@ -40,7 +41,7 @@ class AdminScreen(Screen):
         make_bg(self, 0.05, 0.07, 0.25, 1)
         layout = BoxLayout(orientation='vertical', padding=dp(40), spacing=dp(20))
 
-        layout.add_widget(Label(text="[b]🔐 ADMINISTRATION[/b]", markup=True,
+        layout.add_widget(Label(text="[b]ADMINISTRATION[/b]", markup=True,
                                  font_size=dp(20), color=(1, 0.85, 0.1, 1),
                                  size_hint_y=None, height=dp(50)))
         layout.add_widget(Label(text="Mot de passe requis", font_size=dp(14),
@@ -48,13 +49,16 @@ class AdminScreen(Screen):
 
         self.pwd_input = TextInput(
             hint_text="Entrez le mot de passe...",
-            password=True, multiline=False,
-            size_hint_y=None, height=dp(50),
+            password=True,
+            multiline=False,
+            size_hint_y=None,
+            height=dp(50),
             background_color=(0.15, 0.2, 0.45, 1),
             foreground_color=(1, 1, 1, 1),
             hint_text_color=(0.5, 0.6, 0.8, 1),
             cursor_color=(1, 1, 1, 1),
-            font_size=dp(14)
+            font_size=dp(14),
+            write_tab=False,
         )
         layout.add_widget(self.pwd_input)
 
@@ -64,7 +68,7 @@ class AdminScreen(Screen):
         login_btn.bind(on_release=self._check_password)
         layout.add_widget(login_btn)
 
-        back_btn = Button(text="◀ Retour", size_hint_y=None, height=dp(44),
+        back_btn = Button(text="< Retour", size_hint_y=None, height=dp(44),
                           background_color=(0.3, 0.3, 0.5, 1), background_normal='',
                           font_size=dp(13), color=(1, 1, 1, 1))
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
@@ -73,8 +77,7 @@ class AdminScreen(Screen):
         self.error_label = Label(text="", color=(1, 0.3, 0.3, 1),
                                   size_hint_y=None, height=dp(30))
         layout.add_widget(self.error_label)
-
-        layout.add_widget(Label())  # spacer
+        layout.add_widget(Label())
         self.add_widget(layout)
 
     def _check_password(self, *args):
@@ -84,29 +87,28 @@ class AdminScreen(Screen):
             self.clear_widgets()
             self._build_admin_panel()
         else:
-            self.error_label.text = "❌ Mot de passe incorrect"
+            self.error_label.text = "Mot de passe incorrect"
             self.pwd_input.text = ""
 
     def _build_admin_panel(self):
         make_bg(self, 0.05, 0.07, 0.25, 1)
         main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(8))
 
-        # Header
         header = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
-        back_btn = Button(text="◀", size_hint=(None, 1), width=dp(40),
-                          background_color=(0.2, 0.3, 0.7, 1), background_normal='')
+        back_btn = Button(text="<", size_hint=(None, 1), width=dp(40),
+                          background_color=(0.2, 0.3, 0.7, 1), background_normal='',
+                          color=(1, 1, 1, 1))
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
         header.add_widget(back_btn)
-        header.add_widget(Label(text="[b]🔐 ADMINISTRATION[/b]", markup=True,
+        header.add_widget(Label(text="[b]ADMINISTRATION[/b]", markup=True,
                                  font_size=dp(15), color=(1, 0.85, 0.1, 1)))
-        add_btn = Button(text="➕ Ajouter", size_hint=(None, 1), width=dp(110),
+        add_btn = Button(text="+ Ajouter", size_hint=(None, 1), width=dp(110),
                          background_color=(0.13, 0.55, 0.13, 1), background_normal='',
                          font_size=dp(13), color=(1, 1, 1, 1))
         add_btn.bind(on_release=lambda x: self._open_form())
         header.add_widget(add_btn)
         main.add_widget(header)
 
-        # Liste membres
         scroll = ScrollView()
         self.member_list = BoxLayout(orientation='vertical', spacing=dp(4),
                                      size_hint_y=None, padding=(0, dp(4)))
@@ -125,7 +127,6 @@ class AdminScreen(Screen):
             self.member_list.add_widget(row)
 
     def _open_form(self, membre=None):
-        """Ouvre un popup formulaire pour ajouter/modifier."""
         popup = MemberFormPopup(membre, on_save=self._on_save)
         popup.open()
 
@@ -140,7 +141,7 @@ class AdminScreen(Screen):
             popup.dismiss()
 
         content = BoxLayout(orientation='vertical', padding=dp(15), spacing=dp(10))
-        content.add_widget(Label(text=f"Supprimer [b]{nom}[/b] ?", markup=True,
+        content.add_widget(Label(text="Supprimer [b]{}[/b] ?".format(nom), markup=True,
                                   color=(1, 1, 1, 1), font_size=dp(14)))
         btns = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(10))
         confirm_btn = Button(text="Supprimer", background_color=(0.8, 0.1, 0.1, 1),
@@ -176,20 +177,24 @@ class AdminMemberRow(BoxLayout):
                                color=(1, 1, 1, 1), halign='left',
                                text_size=(dp(170), None)))
         info.add_widget(Label(
-            text=f"{membre.get('niveau','')} | {membre.get('batiment','')} | {membre.get('etablissement','')}",
+            text="{} | {} | {}".format(
+                membre.get('niveau', ''),
+                membre.get('batiment', ''),
+                membre.get('etablissement', '')
+            ),
             font_size=dp(10), color=(0.6, 0.8, 1, 0.8), halign='left',
             text_size=(dp(170), None)
         ))
         self.add_widget(info)
 
-        edit_btn = Button(text="✏", size_hint=(None, 1), width=dp(40),
+        edit_btn = Button(text="Edit", size_hint=(None, 1), width=dp(50),
                           background_color=(0.15, 0.5, 0.85, 1), background_normal='',
-                          font_size=dp(15), color=(1, 1, 1, 1))
+                          font_size=dp(12), color=(1, 1, 1, 1))
         edit_btn.bind(on_release=lambda x: edit_cb(membre['id']))
 
-        del_btn = Button(text="🗑", size_hint=(None, 1), width=dp(40),
+        del_btn = Button(text="Supp.", size_hint=(None, 1), width=dp(55),
                           background_color=(0.75, 0.1, 0.1, 1), background_normal='',
-                          font_size=dp(15), color=(1, 1, 1, 1))
+                          font_size=dp(12), color=(1, 1, 1, 1))
         del_btn.bind(on_release=lambda x: delete_cb(membre['id'], membre['nom']))
 
         self.add_widget(edit_btn)
@@ -198,16 +203,15 @@ class AdminMemberRow(BoxLayout):
 
 class MemberFormPopup(Popup):
     NIVEAUX = ["L1", "L2", "L3", "M1", "M2"]
-    BATIMENTS = ["Bâtiment A", "Bâtiment B", "Bâtiment C", "Bâtiment D", "Bâtiment E"]
+    BATIMENTS = ["Batiment A", "Batiment B", "Batiment C", "Batiment D", "Batiment E"]
     ETABLISSEMENTS = ["ENSET", "ESP", "AGRO", "SCIENCES", "FLSH", "DEGSP", "ISAE", "IST", "ISISFA", "Autre"]
 
     def __init__(self, membre=None, on_save=None, **kwargs):
         self.membre = membre
         self.on_save_cb = on_save
-
         content = self._build_form()
         super().__init__(
-            title="Modifier membre" if membre else "Ajouter un membre",
+            title="Modifier" if membre else "Ajouter un membre",
             content=content,
             size_hint=(0.95, 0.90),
             background_color=(0.07, 0.10, 0.30, 1),
@@ -216,74 +220,59 @@ class MemberFormPopup(Popup):
 
     def _build_form(self):
         scroll = ScrollView()
-        layout = GridLayout(cols=1, spacing=dp(8), padding=dp(10),
-                            size_hint_y=None)
+        layout = GridLayout(cols=1, spacing=dp(8), padding=dp(10), size_hint_y=None)
         layout.bind(minimum_height=layout.setter('height'))
-
         m = self.membre or {}
 
-        def field(hint, key, default=''):
-            inp = TextInput(
-                hint_text=hint, text=str(m.get(key, default)),
+        def field(hint, key):
+            return TextInput(
+                hint_text=hint, text=str(m.get(key, '')),
                 multiline=False, size_hint_y=None, height=dp(44),
                 background_color=(0.15, 0.2, 0.45, 1),
                 foreground_color=(1, 1, 1, 1),
                 hint_text_color=(0.5, 0.6, 0.8, 1),
-                cursor_color=(1, 1, 1, 1), font_size=dp(13)
+                cursor_color=(1, 1, 1, 1),
+                font_size=dp(13),
+                write_tab=False,
             )
-            return inp
-
-        self.nom_input = field("Nom complet *", 'nom')
-        self.telephone_input = field("Téléphone", 'telephone')
-        self.commune_input = field("Commune d'origine", 'commune_origine')
-
-        self.sexe_spinner = Spinner(text=m.get('sexe', 'M'), values=['M', 'F'],
-                                     size_hint_y=None, height=dp(44),
-                                     background_color=(0.2, 0.3, 0.7, 1),
-                                     color=(1, 1, 1, 1))
-        self.niveau_spinner = Spinner(text=m.get('niveau', 'L1'), values=self.NIVEAUX,
-                                       size_hint_y=None, height=dp(44),
-                                       background_color=(0.2, 0.3, 0.7, 1),
-                                       color=(1, 1, 1, 1))
-        self.promotion_input = field("Promotion (ex: 2022)", 'promotion')
-        self.batiment_spinner = Spinner(
-            text=m.get('batiment', 'Bâtiment A'), values=self.BATIMENTS,
-            size_hint_y=None, height=dp(44),
-            background_color=(0.2, 0.3, 0.7, 1), color=(1, 1, 1, 1)
-        )
-        self.etab_spinner = Spinner(
-            text=m.get('etablissement', 'ENSET'), values=self.ETABLISSEMENTS,
-            size_hint_y=None, height=dp(44),
-            background_color=(0.2, 0.3, 0.7, 1), color=(1, 1, 1, 1)
-        )
 
         def lbl(text):
             return Label(text=text, color=(0.7, 0.85, 1, 1), size_hint_y=None,
                           height=dp(22), halign='left', font_size=dp(12))
 
-        for w, hint in [
-            (lbl("Nom complet *"), None),
-            (self.nom_input, None),
-            (lbl("Sexe"), None),
-            (self.sexe_spinner, None),
-            (lbl("Niveau"), None),
-            (self.niveau_spinner, None),
-            (lbl("Promotion"), None),
-            (self.promotion_input, None),
-            (lbl("Bâtiment"), None),
-            (self.batiment_spinner, None),
-            (lbl("Établissement"), None),
-            (self.etab_spinner, None),
-            (lbl("Téléphone"), None),
-            (self.telephone_input, None),
-            (lbl("Commune d'origine"), None),
-            (self.commune_input, None),
-        ]:
+        self.nom_input = field("Nom complet *", 'nom')
+        self.telephone_input = field("Telephone", 'telephone')
+        self.commune_input = field("Commune d'origine", 'commune_origine')
+        self.promotion_input = field("Promotion (ex: 2022)", 'promotion')
+
+        self.sexe_spinner = Spinner(text=m.get('sexe', 'M'), values=['M', 'F'],
+                                     size_hint_y=None, height=dp(44),
+                                     background_color=(0.2, 0.3, 0.7, 1), color=(1, 1, 1, 1))
+        self.niveau_spinner = Spinner(text=m.get('niveau', 'L1'), values=self.NIVEAUX,
+                                       size_hint_y=None, height=dp(44),
+                                       background_color=(0.2, 0.3, 0.7, 1), color=(1, 1, 1, 1))
+        self.batiment_spinner = Spinner(text=m.get('batiment', 'Batiment A'), values=self.BATIMENTS,
+                                         size_hint_y=None, height=dp(44),
+                                         background_color=(0.2, 0.3, 0.7, 1), color=(1, 1, 1, 1))
+        self.etab_spinner = Spinner(text=m.get('etablissement', 'ENSET'), values=self.ETABLISSEMENTS,
+                                     size_hint_y=None, height=dp(44),
+                                     background_color=(0.2, 0.3, 0.7, 1), color=(1, 1, 1, 1))
+
+        widgets = [
+            lbl("Nom complet *"), self.nom_input,
+            lbl("Sexe"), self.sexe_spinner,
+            lbl("Niveau"), self.niveau_spinner,
+            lbl("Promotion"), self.promotion_input,
+            lbl("Batiment"), self.batiment_spinner,
+            lbl("Etablissement"), self.etab_spinner,
+            lbl("Telephone"), self.telephone_input,
+            lbl("Commune d'origine"), self.commune_input,
+        ]
+        for w in widgets:
             layout.add_widget(w)
 
-        # Boutons
         btns = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
-        save_btn = Button(text="💾 Enregistrer",
+        save_btn = Button(text="Enregistrer",
                           background_color=(0.13, 0.55, 0.13, 1), background_normal='',
                           color=(1, 1, 1, 1), font_size=dp(14))
         cancel_btn = Button(text="Annuler",

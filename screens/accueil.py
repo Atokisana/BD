@@ -1,5 +1,6 @@
 """
 screens/accueil.py - Écran d'accueil CENAD
+Corrections : chemin logo Android, remplacement emojis par texte/formes
 """
 
 from kivy.uix.screenmanager import Screen
@@ -10,7 +11,27 @@ from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.metrics import dp
+from kivy.utils import platform
 import os
+
+
+def get_asset_path(filename):
+    """Retourne le bon chemin selon la plateforme."""
+    if platform == 'android':
+        from android.storage import app_storage_path
+        # Sur Android, les assets sont dans le dossier de l'app
+        base = os.path.dirname(os.path.abspath(__file__))
+        # Remonter d'un niveau pour trouver assets/
+        root = os.path.dirname(base)
+        path = os.path.join(root, 'assets', filename)
+        if os.path.exists(path):
+            return path
+        # Essai alternatif
+        path2 = os.path.join(base, '..', 'assets', filename)
+        return path2
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base, 'assets', filename)
 
 
 class AccueilScreen(Screen):
@@ -20,7 +41,7 @@ class AccueilScreen(Screen):
 
     def build_ui(self):
         with self.canvas.before:
-            Color(0.07, 0.09, 0.30, 1)  # Bleu marine universitaire
+            Color(0.07, 0.09, 0.30, 1)
             self.bg_rect = Rectangle(size=self.size, pos=self.pos)
         self.bind(size=self._update_bg, pos=self._update_bg)
 
@@ -29,19 +50,34 @@ class AccueilScreen(Screen):
                            size_hint_y=None)
         layout.bind(minimum_height=layout.setter('height'))
 
-        # Logo/Header
+        # Logo
         header = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(200),
                            spacing=dp(5))
 
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'logo.png')
-        if os.path.exists(logo_path):
-            logo = Image(source=logo_path, size_hint=(None, None), size=(dp(100), dp(100)),
-                         pos_hint={'center_x': 0.5})
-            header.add_widget(logo)
-        else:
-            # Placeholder cercle coloré
+        # CORRECTION : chercher logo.PNG (majuscule) et logo.png
+        logo_found = False
+        for fname in ['logo.PNG', 'logo.png']:
+            logo_path = get_asset_path(fname)
+            if os.path.exists(logo_path):
+                logo = Image(source=logo_path, size_hint=(None, None),
+                             size=(dp(100), dp(100)),
+                             pos_hint={'center_x': 0.5})
+                header.add_widget(logo)
+                logo_found = True
+                break
+
+        if not logo_found:
+            # Placeholder cercle doré si pas de logo
             from kivy.uix.widget import Widget
-            header.add_widget(Widget(size_hint_y=None, height=dp(10)))
+            placeholder = Widget(size_hint=(None, None), size=(dp(80), dp(80)),
+                                 pos_hint={'center_x': 0.5})
+            with placeholder.canvas:
+                Color(1, 0.85, 0.1, 1)
+                from kivy.graphics import Ellipse
+                placeholder._ellipse = Ellipse(
+                    size=(dp(80), dp(80)), pos=placeholder.pos)
+                placeholder.bind(pos=lambda w, p: setattr(w._ellipse, 'pos', p))
+            header.add_widget(placeholder)
 
         title = Label(
             text="[b]CENAD[/b]",
@@ -53,16 +89,15 @@ class AccueilScreen(Screen):
             halign='center'
         )
         subtitle = Label(
-            text="Communauté des Étudiants\nNatifs d'Andapa à Antsiranana",
+            text="Communaute des Etudiants\nNatifs d'Andapa a Antsiranana",
             font_size=dp(13),
             color=(0.7, 0.85, 1, 1),
             size_hint_y=None,
             height=dp(50),
             halign='center',
-            text_size=(None, None)
         )
         tagline = Label(
-            text="[i]Unis pour la réussite[/i]",
+            text="[i]Unis pour la reussite[/i]",
             markup=True,
             font_size=dp(11),
             color=(0.5, 0.8, 0.5, 1),
@@ -75,24 +110,22 @@ class AccueilScreen(Screen):
         header.add_widget(tagline)
         layout.add_widget(header)
 
-        # Séparateur
-        sep = Label(text="─" * 40, color=(0.3, 0.4, 0.8, 0.6),
-                    size_hint_y=None, height=dp(20))
+        sep = Label(text="", size_hint_y=None, height=dp(5))
         layout.add_widget(sep)
 
-        # Boutons navigation
         nav_label = Label(text="[b]NAVIGATION[/b]", markup=True,
                           font_size=dp(12), color=(0.6, 0.7, 1, 1),
                           size_hint_y=None, height=dp(25))
         layout.add_widget(nav_label)
 
+        # CORRECTION : texte sans emojis (incompatibles Android par defaut)
         buttons = [
-            ("📊  Tableau de bord", "dashboard", "#1565C0"),
-            ("🏢  Liste par bâtiment", "liste_batiment", "#1B5E20"),
-            ("🎓  Liste par promotion", "liste_promotion", "#4A148C"),
-            ("📜  Historique CENAD", "historique", "#BF360C"),
-            ("🏛  Établissements", "etablissements", "#006064"),
-            ("🔐  Administration", "admin", "#37474F"),
+            ("[Dashboard]  Tableau de bord", "dashboard", "#1565C0"),
+            ("[Batiment]   Liste par batiment", "liste_batiment", "#1B5E20"),
+            ("[Promo]      Liste par promotion", "liste_promotion", "#4A148C"),
+            ("[Historique] Historique CENAD", "historique", "#BF360C"),
+            ("[Campus]     Etablissements", "etablissements", "#006064"),
+            ("[Admin]      Administration", "admin", "#37474F"),
         ]
 
         for text, screen_name, color_hex in buttons:
@@ -101,9 +134,8 @@ class AccueilScreen(Screen):
             btn.bind(on_release=self.navigate)
             layout.add_widget(btn)
 
-        # Footer
         footer = Label(
-            text="© CENAD 2024 | Fondée en 2012",
+            text="(c) CENAD 2024 | Fondee en 2012",
             font_size=dp(10),
             color=(0.4, 0.5, 0.7, 0.8),
             size_hint_y=None,
@@ -133,7 +165,7 @@ class NavButton(Button):
             text=text,
             size_hint_y=None,
             height=dp(52),
-            font_size=dp(14),
+            font_size=dp(13),
             halign='left',
             padding_x=dp(20),
             background_normal='',

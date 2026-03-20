@@ -116,7 +116,7 @@ class EtablissementsScreen(Screen):
                           background_color=(0.2, 0.3, 0.7, 1), background_normal='')
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
         header.add_widget(back_btn)
-        header.add_widget(Label(text="[b]🏛 ÉTABLISSEMENTS UNIVERSITAIRES[/b]",
+        header.add_widget(Label(text="[b][Etab] ÉTABLISSEMENTS UNIVERSITAIRES[/b]",
                                  markup=True, font_size=dp(13), color=(1, 0.85, 0.1, 1)))
         main.add_widget(header)
 
@@ -189,12 +189,12 @@ class EtabCard(BoxLayout):
             body.add_widget(lbl)
             return lbl
 
-        mission_lbl = add_row("🎯", etab['mission'], (1, 0.9, 0.6, 1))
-        desc_lbl = add_row("ℹ", etab['description'])
+        mission_lbl = add_row("Objectif:", etab['mission'], (1, 0.9, 0.6, 1))
+        desc_lbl = add_row("Info:", etab['description'])
         mentions_str = " • ".join(etab['mentions'])
-        add_row("📚", f"Mentions : {mentions_str}")
+        add_row("Cours:", f"Mentions : {mentions_str}")
         parcours_str = " | ".join(etab['parcours'])
-        add_row("🎓", f"Parcours : {parcours_str}", (0.7, 1, 0.7, 1))
+        add_row("Parcours:", f"Parcours : {parcours_str}", (0.7, 1, 0.7, 1))
 
         # Hauteur dynamique
         def update_body_height(*a):

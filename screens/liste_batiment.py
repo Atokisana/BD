@@ -38,7 +38,7 @@ class ListeBatimentScreen(Screen):
                           background_color=(0.2, 0.3, 0.7, 1), background_normal='')
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
         header.add_widget(back_btn)
-        header.add_widget(Label(text="[b]🏢 LISTE PAR BÂTIMENT[/b]", markup=True,
+        header.add_widget(Label(text="[b] LISTE PAR BÂTIMENT[/b]", markup=True,
                                  font_size=dp(15), color=(1, 0.85, 0.1, 1)))
         main.add_widget(header)
 
@@ -87,7 +87,7 @@ class BatimentSection(BoxLayout):
                     pos=lambda *a: setattr(self.h_rect, 'pos', header.pos))
 
         header.add_widget(Label(
-            text=f"[b]🏢 {batiment_name}[/b]   ({total} membre{'s' if total > 1 else ''})",
+            text=f"[b] {batiment_name}[/b]   ({total} membre{'s' if total > 1 else ''})",
             markup=True, font_size=dp(14), color=(1, 1, 1, 1), halign='left'
         ))
         self.add_widget(header)

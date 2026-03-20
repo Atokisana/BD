@@ -37,7 +37,7 @@ class ListePromotionScreen(Screen):
                           background_color=(0.2, 0.3, 0.7, 1), background_normal='')
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
         header.add_widget(back_btn)
-        header.add_widget(Label(text="[b]🎓 LISTE PAR PROMOTION[/b]", markup=True,
+        header.add_widget(Label(text="[b] LISTE PAR PROMOTION[/b]", markup=True,
                                  font_size=dp(15), color=(1, 0.85, 0.1, 1)))
         main.add_widget(header)
 
@@ -85,7 +85,7 @@ class PromotionSection(BoxLayout):
                     pos=lambda *a: setattr(h_rect, 'pos', header.pos))
 
         info = BoxLayout(orientation='vertical')
-        info.add_widget(Label(text=f"[b]🎓 Promotion {promo}[/b]", markup=True,
+        info.add_widget(Label(text=f"[b] Promotion {promo}[/b]", markup=True,
                                font_size=dp(14), color=(1, 1, 1, 1), halign='left',
                                text_size=(dp(200), None)))
         info.add_widget(Label(text=f"{total} membre{'s' if total > 1 else ''}",
