@@ -1,20 +1,17 @@
 """
-db_manager.py - Gestion optimisée de la base de données SQLite
-CENAD - Communauté des Étudiants Natifs d'Andapa à Antsiranana
+db_manager.py - Gestion SQLite CENAD avec import/export CSV
 """
 
 import sqlite3
 import hashlib
 import os
+import csv
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'cenad.db')
-
-# Mot de passe admin hashé en SHA-256 (par défaut: "cenad2024")
 ADMIN_PASSWORD_HASH = hashlib.sha256("cenad2024".encode()).hexdigest()
 
 
 def get_connection():
-    """Retourne une connexion SQLite avec optimisations."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -24,11 +21,9 @@ def get_connection():
 
 
 def init_db():
-    """Initialise la base de données avec table et index."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = get_connection()
     cursor = conn.cursor()
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS membres (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,26 +38,21 @@ def init_db():
             photo TEXT DEFAULT ''
         )
     ''')
-
-    # Index pour recherches rapides
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_nom ON membres(nom)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_promotion ON membres(promotion)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_batiment ON membres(batiment)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_niveau ON membres(niveau)")
-
     conn.commit()
     conn.close()
 
 
 def insert_sample_data():
-    """Insère des données d'exemple si la table est vide."""
     conn = get_connection()
     cursor = conn.cursor()
     count = cursor.execute("SELECT COUNT(*) FROM membres").fetchone()[0]
     if count > 0:
         conn.close()
         return
-
     sample = [
         ("RAKOTO Jean", "M", "L2", "2022", "BLOC A", "ENSET", "Andapa", "0341234567", ""),
         ("RABE Marie", "F", "L3", "2021", "BLOC B", "ESP", "Andapa", "0349876543", ""),
@@ -80,7 +70,6 @@ def insert_sample_data():
         ("RAZANAJATOVO Tiana", "F", "L2", "2022", "PV B", "AGRO", "Andapa", "0343456790", ""),
         ("RAKOTOARIVO Fidy", "M", "M1", "2020", "BLOC I", "FLSH", "Andapa", "0344567891", ""),
     ]
-
     cursor.executemany(
         "INSERT INTO membres (nom, sexe, niveau, promotion, batiment, etablissement, commune_origine, telephone, photo) VALUES (?,?,?,?,?,?,?,?,?)",
         sample
@@ -89,27 +78,25 @@ def insert_sample_data():
     conn.close()
 
 
-# ===== CRUD Operations =====
+# ===== CRUD =====
 
-def get_all_membres(limit=200, offset=0):
-    """Charge les membres avec pagination."""
+def get_all_membres(limit=500, offset=0):
     conn = get_connection()
     rows = conn.execute(
-        "SELECT id, nom, sexe, niveau, promotion, batiment, etablissement FROM membres ORDER BY nom LIMIT ? OFFSET ?",
+        "SELECT id, nom, sexe, niveau, promotion, batiment, etablissement, photo FROM membres ORDER BY nom LIMIT ? OFFSET ?",
         (limit, offset)
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def search_membres(query="", niveau="", promotion="", batiment=""):
-    """Recherche optimisée par SQL."""
+def search_membres(query="", niveau="", promotion="", batiment="", etablissement=""):
     conn = get_connection()
-    sql = "SELECT id, nom, sexe, niveau, promotion, batiment, etablissement FROM membres WHERE 1=1"
+    sql = "SELECT id, nom, sexe, niveau, promotion, batiment, etablissement, photo FROM membres WHERE 1=1"
     params = []
     if query:
         sql += " AND nom LIKE ?"
-        params.append(f"%{query}%")
+        params.append("%{}%".format(query))
     if niveau:
         sql += " AND niveau = ?"
         params.append(niveau)
@@ -119,14 +106,16 @@ def search_membres(query="", niveau="", promotion="", batiment=""):
     if batiment:
         sql += " AND batiment = ?"
         params.append(batiment)
-    sql += " ORDER BY nom LIMIT 200"
+    if etablissement:
+        sql += " AND etablissement = ?"
+        params.append(etablissement)
+    sql += " ORDER BY nom LIMIT 500"
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
 def get_membre_by_id(membre_id):
-    """Charge un membre complet par ID."""
     conn = get_connection()
     row = conn.execute("SELECT * FROM membres WHERE id = ?", (membre_id,)).fetchone()
     conn.close()
@@ -134,33 +123,30 @@ def get_membre_by_id(membre_id):
 
 
 def add_membre(data):
-    """Ajoute un nouveau membre."""
     conn = get_connection()
     conn.execute(
         "INSERT INTO membres (nom, sexe, niveau, promotion, batiment, etablissement, commune_origine, telephone, photo) VALUES (?,?,?,?,?,?,?,?,?)",
-        (data['nom'], data['sexe'], data['niveau'], data['promotion'],
-         data['batiment'], data['etablissement'], data['commune_origine'],
-         data['telephone'], data.get('photo', ''))
+        (data['nom'], data['sexe'], data['niveau'], data.get('promotion', ''),
+         data.get('batiment', ''), data.get('etablissement', ''), data.get('commune_origine', ''),
+         data.get('telephone', ''), data.get('photo', ''))
     )
     conn.commit()
     conn.close()
 
 
 def update_membre(membre_id, data):
-    """Modifie un membre existant."""
     conn = get_connection()
     conn.execute(
         "UPDATE membres SET nom=?, sexe=?, niveau=?, promotion=?, batiment=?, etablissement=?, commune_origine=?, telephone=?, photo=? WHERE id=?",
-        (data['nom'], data['sexe'], data['niveau'], data['promotion'],
-         data['batiment'], data['etablissement'], data['commune_origine'],
-         data['telephone'], data.get('photo', ''), membre_id)
+        (data['nom'], data['sexe'], data['niveau'], data.get('promotion', ''),
+         data.get('batiment', ''), data.get('etablissement', ''), data.get('commune_origine', ''),
+         data.get('telephone', ''), data.get('photo', ''), membre_id)
     )
     conn.commit()
     conn.close()
 
 
 def delete_membre(membre_id):
-    """Supprime un membre."""
     conn = get_connection()
     conn.execute("DELETE FROM membres WHERE id = ?", (membre_id,))
     conn.commit()
@@ -168,18 +154,18 @@ def delete_membre(membre_id):
 
 
 def get_stats_by_field(field):
-    """Retourne statistiques groupées par champ (SQL direct, sans Pandas)."""
     allowed = ['niveau', 'promotion', 'batiment', 'sexe', 'etablissement']
     if field not in allowed:
         return {}
     conn = get_connection()
-    rows = conn.execute(f"SELECT {field}, COUNT(*) as total FROM membres GROUP BY {field} ORDER BY total DESC").fetchall()
+    rows = conn.execute(
+        "SELECT {}, COUNT(*) as total FROM membres GROUP BY {} ORDER BY total DESC".format(field, field)
+    ).fetchall()
     conn.close()
     return {r[field]: r['total'] for r in rows}
 
 
 def get_total_count():
-    """Retourne le nombre total de membres."""
     conn = get_connection()
     count = conn.execute("SELECT COUNT(*) FROM membres").fetchone()[0]
     conn.close()
@@ -187,16 +173,81 @@ def get_total_count():
 
 
 def verify_admin_password(password):
-    """Vérifie le mot de passe admin via SHA-256."""
     return hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH
 
 
 def get_distinct_values(field):
-    """Retourne les valeurs distinctes d'un champ pour les filtres."""
     allowed = ['niveau', 'promotion', 'batiment', 'etablissement']
     if field not in allowed:
         return []
     conn = get_connection()
-    rows = conn.execute(f"SELECT DISTINCT {field} FROM membres WHERE {field} IS NOT NULL AND {field} != '' ORDER BY {field}").fetchall()
+    rows = conn.execute(
+        "SELECT DISTINCT {} FROM membres WHERE {} IS NOT NULL AND {} != '' ORDER BY {}".format(
+            field, field, field, field)
+    ).fetchall()
     conn.close()
     return [r[0] for r in rows]
+
+
+# ===== EXPORT CSV =====
+
+def export_csv():
+    """Exporte tous les membres en CSV — utilisé par l'admin."""
+    path = os.path.join(os.path.dirname(__file__), 'data', 'cenad_membres.csv')
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM membres ORDER BY nom").fetchall()
+    conn.close()
+
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['id', 'nom', 'sexe', 'niveau', 'promotion',
+                         'batiment', 'etablissement', 'commune_origine', 'telephone', 'photo'])
+        for r in rows:
+            writer.writerow([
+                r['id'], r['nom'], r['sexe'], r['niveau'], r['promotion'],
+                r['batiment'], r['etablissement'], r['commune_origine'],
+                r['telephone'], r['photo']
+            ])
+    return path
+
+
+# ===== IMPORT CSV =====
+
+def import_from_csv(csv_path):
+    """
+    Importe les membres depuis un fichier CSV.
+    Remplace toute la liste existante.
+    Retourne le nombre de membres importés.
+    """
+    membres = []
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            nom = row.get('nom', '').strip()
+            if not nom:
+                continue
+            membres.append((
+                nom,
+                row.get('sexe', 'M').strip(),
+                row.get('niveau', 'L1').strip(),
+                row.get('promotion', '').strip(),
+                row.get('batiment', '').strip(),
+                row.get('etablissement', '').strip(),
+                row.get('commune_origine', '').strip(),
+                row.get('telephone', '').strip(),
+                row.get('photo', '').strip(),
+            ))
+
+    if not membres:
+        raise ValueError("Aucun membre valide dans le fichier CSV")
+
+    conn = get_connection()
+    # Supprimer ancienne liste et réimporter
+    conn.execute("DELETE FROM membres")
+    conn.executemany(
+        "INSERT INTO membres (nom, sexe, niveau, promotion, batiment, etablissement, commune_origine, telephone, photo) VALUES (?,?,?,?,?,?,?,?,?)",
+        membres
+    )
+    conn.commit()
+    conn.close()
+    return len(membres)

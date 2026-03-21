@@ -1,6 +1,6 @@
 """
-screens/dashboard.py - Tableau de bord avec recherche et statistiques
-Corrections : clavier persistant, recherche, sans emojis
+screens/dashboard.py - Tableau de bord CENAD
+Ameliorations : fiche membre, appel direct, recherche multi-criteres
 """
 
 from kivy.uix.screenmanager import Screen
@@ -12,14 +12,43 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.spinner import Spinner
 from kivy.uix.image import Image
-from kivy.graphics import Color, Rectangle
+from kivy.uix.popup import Popup
+from kivy.uix.filechooser import FileChooserListView
+from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.clock import Clock
 from kivy.metrics import dp
+from kivy.utils import platform
 import threading
 import os
 
 import db_manager as db
 import analytics
+
+
+def get_base_dir():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def get_downloads_dir():
+    if platform == 'android':
+        try:
+            from android.storage import primary_external_storage_path
+            return os.path.join(primary_external_storage_path(), 'Download')
+        except Exception:
+            return '/sdcard/Download'
+    return os.path.expanduser('~/Downloads')
+
+def open_phone(number):
+    if platform == 'android':
+        try:
+            from android import activity
+            from jnius import autoclass
+            Intent = autoclass('android.content.Intent')
+            Uri = autoclass('android.net.Uri')
+            intent = Intent(Intent.ACTION_DIAL)
+            intent.setData(Uri.parse('tel:' + number))
+            activity.startActivity(intent)
+        except Exception:
+            pass
 
 
 class DashboardScreen(Screen):
@@ -30,105 +59,179 @@ class DashboardScreen(Screen):
 
     def build_ui(self):
         with self.canvas.before:
-            Color(0.07, 0.09, 0.30, 1)
+            Color(0.05, 0.07, 0.22, 1)
             self.bg_rect = Rectangle(size=self.size, pos=self.pos)
         self.bind(size=self._update_bg, pos=self._update_bg)
 
-        main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(8))
+        main = BoxLayout(orientation='vertical', spacing=0)
 
-        # Header
-        header = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
-        back_btn = Button(text="< Retour", size_hint=(None, 1), width=dp(80),
-                          background_color=(0.2, 0.3, 0.7, 1),
-                          background_normal='', font_size=dp(12), color=(1, 1, 1, 1))
+        # TOPBAR
+        topbar = BoxLayout(size_hint_y=None, height=dp(56), padding=(dp(8), dp(6)))
+        with topbar.canvas.before:
+            Color(0.04, 0.05, 0.18, 1)
+            self._tb = Rectangle(size=topbar.size, pos=topbar.pos)
+        topbar.bind(size=lambda *a: setattr(self._tb, 'size', topbar.size),
+                    pos=lambda *a: setattr(self._tb, 'pos', topbar.pos))
+        back_btn = Button(
+            text="< Retour", size_hint=(None, 1), width=dp(80),
+            background_color=(0.15, 0.25, 0.6, 1), background_normal='',
+            font_size=dp(12), color=(1, 1, 1, 1)
+        )
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
-        title = Label(text="[b]TABLEAU DE BORD[/b]", markup=True,
-                      font_size=dp(15), color=(1, 0.85, 0.1, 1))
-        header.add_widget(back_btn)
-        header.add_widget(title)
-        main.add_widget(header)
+        topbar.add_widget(back_btn)
+        topbar.add_widget(Label(
+            text="[b]TABLEAU DE BORD[/b]", markup=True,
+            font_size=dp(16), color=(1, 0.85, 0.1, 1)
+        ))
+        main.add_widget(topbar)
 
-        # Barre recherche
-        search_box = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(5))
-        self.search_input = TextInput(
-            hint_text="Rechercher par nom...",
-            multiline=False,
-            size_hint=(0.65, 1),
-            background_color=(0.15, 0.2, 0.45, 1),
-            foreground_color=(1, 1, 1, 1),
-            hint_text_color=(0.5, 0.6, 0.8, 1),
-            cursor_color=(1, 1, 1, 1),
-            font_size=dp(13),
-            # CORRECTION : empêche le clavier de se fermer
-            write_tab=False,
-        )
-        self.search_input.bind(text=self._on_search_text)
+        scroll = ScrollView()
+        content = BoxLayout(orientation='vertical', size_hint_y=None,
+                            padding=dp(10), spacing=dp(10))
+        content.bind(minimum_height=content.setter('height'))
 
-        self.niveau_spinner = Spinner(
-            text="Niveau",
-            values=["Tous", "L1", "L2", "L3", "M1", "M2"],
-            size_hint=(0.35, 1),
-            background_color=(0.2, 0.3, 0.7, 1),
-            color=(1, 1, 1, 1),
-            font_size=dp(12)
-        )
-        self.niveau_spinner.bind(text=self._on_filter_change)
-
-        search_box.add_widget(self.search_input)
-        search_box.add_widget(self.niveau_spinner)
-        main.add_widget(search_box)
-
-        # Bouton recherche explicite (utile sur Android)
-        search_btn = Button(
-            text="Rechercher",
-            size_hint_y=None, height=dp(40),
-            background_color=(0.25, 0.5, 0.9, 1),
-            background_normal='',
-            font_size=dp(13), color=(1, 1, 1, 1)
-        )
-        search_btn.bind(on_release=lambda x: self._search())
-        main.add_widget(search_btn)
-
-        # Stats rapides
-        self.stats_grid = GridLayout(cols=3, size_hint_y=None, height=dp(70),
-                                     spacing=dp(5))
+        # STATS
+        self.stats_grid = GridLayout(cols=3, size_hint_y=None, height=dp(80), spacing=dp(6))
         self.stat_total = StatCard("Total", "0", "#1565C0")
-        self.stat_m = StatCard("Hommes", "0", "#2E7D32")
-        self.stat_f = StatCard("Femmes", "0", "#AD1457")
+        self.stat_m = StatCard("Hommes", "0", "#1B5E20")
+        self.stat_f = StatCard("Femmes", "0", "#880E4F")
         self.stats_grid.add_widget(self.stat_total)
         self.stats_grid.add_widget(self.stat_m)
         self.stats_grid.add_widget(self.stat_f)
-        main.add_widget(self.stats_grid)
+        content.add_widget(self.stats_grid)
 
-        # Boutons graphiques
-        chart_bar = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(5))
-        for label, field in [("Par Niveau", "niveau"), ("Par Batiment", "batiment"), ("Par Promo", "promotion")]:
-            btn = Button(text=label, background_color=(0.25, 0.4, 0.9, 1),
-                         background_normal='', font_size=dp(11), color=(1, 1, 1, 1))
+        # RECHERCHE MULTI-CRITERES
+        search_card = BoxLayout(orientation='vertical', size_hint_y=None,
+                                height=dp(190), spacing=dp(6), padding=(dp(8), dp(8)))
+        with search_card.canvas.before:
+            Color(0.08, 0.11, 0.32, 1)
+            self._sc = RoundedRectangle(size=search_card.size, pos=search_card.pos, radius=[dp(10)])
+        search_card.bind(size=lambda *a: setattr(self._sc, 'size', search_card.size),
+                         pos=lambda *a: setattr(self._sc, 'pos', search_card.pos))
+
+        row1 = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
+        self.search_input = TextInput(
+            hint_text="Rechercher par nom...",
+            multiline=False, write_tab=False,
+            background_color=(0.12, 0.17, 0.42, 1),
+            foreground_color=(1, 1, 1, 1),
+            hint_text_color=(0.5, 0.6, 0.8, 1),
+            cursor_color=(1, 1, 1, 1), font_size=dp(13)
+        )
+        self.search_input.bind(text=self._on_search_text)
+        self.niveau_spinner = Spinner(
+            text="Niveau", values=["Tous", "L1", "L2", "L3", "M1", "M2"],
+            size_hint=(None, 1), width=dp(85),
+            background_color=(0.2, 0.3, 0.7, 1),
+            color=(1, 1, 1, 1), font_size=dp(12)
+        )
+        self.niveau_spinner.bind(text=self._on_filter_change)
+        row1.add_widget(self.search_input)
+        row1.add_widget(self.niveau_spinner)
+        search_card.add_widget(row1)
+
+        row2 = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
+        batiments = ["Batiment", "BLOC A", "BLOC B", "BLOC C", "BLOC D", "BLOC E",
+                     "BLOC F", "BLOC G", "BLOC H", "BLOC I",
+                     "PJ A", "PJ B", "PJ C", "PV B", "PV C", "Belle rose"]
+        self.batiment_spinner = Spinner(
+            text="Batiment", values=batiments,
+            size_hint=(0.5, 1),
+            background_color=(0.18, 0.28, 0.62, 1),
+            color=(1, 1, 1, 1), font_size=dp(11)
+        )
+        self.batiment_spinner.bind(text=self._on_filter_change)
+
+        etablissements = ["Etablissement", "ENSET", "ESP", "AGRO", "SCIENCES",
+                          "FLSH", "DEGSP", "ISAE", "IST", "ISISFA"]
+        self.etab_spinner = Spinner(
+            text="Etablissement", values=etablissements,
+            size_hint=(0.5, 1),
+            background_color=(0.18, 0.28, 0.62, 1),
+            color=(1, 1, 1, 1), font_size=dp(11)
+        )
+        self.etab_spinner.bind(text=self._on_filter_change)
+        row2.add_widget(self.batiment_spinner)
+        row2.add_widget(self.etab_spinner)
+        search_card.add_widget(row2)
+
+        row3 = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(6))
+        search_btn = Button(
+            text="Rechercher", size_hint=(0.75, 1),
+            background_color=(0.18, 0.45, 0.85, 1), background_normal='',
+            font_size=dp(13), color=(1, 1, 1, 1)
+        )
+        search_btn.bind(on_release=lambda x: self._search())
+        reset_btn = Button(
+            text="Reset", size_hint=(0.25, 1),
+            background_color=(0.35, 0.2, 0.55, 1), background_normal='',
+            font_size=dp(12), color=(1, 1, 1, 1)
+        )
+        reset_btn.bind(on_release=self._reset_filters)
+        row3.add_widget(search_btn)
+        row3.add_widget(reset_btn)
+        search_card.add_widget(row3)
+        content.add_widget(search_card)
+
+        # BOUTON MISE A JOUR
+        update_card = BoxLayout(orientation='vertical', size_hint_y=None,
+                                height=dp(100), spacing=dp(6), padding=(dp(8), dp(8)))
+        with update_card.canvas.before:
+            Color(0.06, 0.10, 0.28, 1)
+            self._uc = RoundedRectangle(size=update_card.size, pos=update_card.pos, radius=[dp(10)])
+        update_card.bind(size=lambda *a: setattr(self._uc, 'size', update_card.size),
+                         pos=lambda *a: setattr(self._uc, 'pos', update_card.pos))
+        btn_update = Button(
+            text="Mettre a jour la liste",
+            size_hint_y=None, height=dp(50),
+            background_color=(0.10, 0.50, 0.28, 1), background_normal='',
+            font_size=dp(14), color=(1, 1, 1, 1), bold=True
+        )
+        btn_update.bind(on_release=self._show_update_options)
+        update_card.add_widget(btn_update)
+        self.import_status = Label(
+            text="", font_size=dp(11), color=(0.5, 1, 0.5, 1),
+            size_hint_y=None, height=dp(22), halign='center'
+        )
+        update_card.add_widget(self.import_status)
+        content.add_widget(update_card)
+
+        # GRAPHIQUES
+        content.add_widget(Label(
+            text="[b]Statistiques[/b]", markup=True,
+            font_size=dp(13), color=(0.7, 0.85, 1, 1),
+            size_hint_y=None, height=dp(28), halign='left'
+        ))
+        chart_bar = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
+        for lbl, field in [("Niveau", "niveau"), ("Batiment", "batiment"), ("Promo", "promotion")]:
+            btn = Button(text=lbl, background_color=(0.15, 0.28, 0.72, 1),
+                         background_normal='', font_size=dp(12), color=(1, 1, 1, 1))
             btn.field = field
             btn.bind(on_release=self._show_chart)
             chart_bar.add_widget(btn)
-        main.add_widget(chart_bar)
-
-        # Zone graphique
+        content.add_widget(chart_bar)
         self.chart_area = BoxLayout(size_hint_y=None, height=dp(0))
         self.chart_image = Image(allow_stretch=True, keep_ratio=True)
         self.chart_area.add_widget(self.chart_image)
-        main.add_widget(self.chart_area)
+        content.add_widget(self.chart_area)
 
-        # Liste résultats
-        result_label = Label(text="[b]Resultats[/b]", markup=True,
-                             size_hint_y=None, height=dp(25),
-                             color=(0.7, 0.85, 1, 1), font_size=dp(12))
-        main.add_widget(result_label)
+        # LISTE
+        result_header = BoxLayout(size_hint_y=None, height=dp(30))
+        result_header.add_widget(Label(
+            text="[b]Liste des membres[/b]", markup=True,
+            font_size=dp(13), color=(0.7, 0.85, 1, 1), halign='left'
+        ))
+        self.count_label = Label(text="", font_size=dp(11),
+                                  color=(0.5, 0.7, 1, 0.8), halign='right')
+        result_header.add_widget(self.count_label)
+        content.add_widget(result_header)
 
-        scroll = ScrollView()
-        self.result_list = BoxLayout(orientation='vertical', spacing=dp(4),
-                                     size_hint_y=None, padding=(0, dp(4)))
+        self.result_list = BoxLayout(orientation='vertical', spacing=dp(4), size_hint_y=None)
         self.result_list.bind(minimum_height=self.result_list.setter('height'))
-        scroll.add_widget(self.result_list)
-        main.add_widget(scroll)
+        content.add_widget(self.result_list)
 
+        scroll.add_widget(content)
+        main.add_widget(scroll)
         self.add_widget(main)
 
     def on_enter(self):
@@ -143,23 +246,33 @@ class DashboardScreen(Screen):
     def _on_filter_change(self, instance, value):
         self._search()
 
+    def _reset_filters(self, *args):
+        self.search_input.text = ''
+        self.niveau_spinner.text = 'Tous'
+        self.batiment_spinner.text = 'Batiment'
+        self.etab_spinner.text = 'Etablissement'
+        self._search()
+
     def _search(self):
         query = self.search_input.text.strip()
         niveau = self.niveau_spinner.text if self.niveau_spinner.text != "Tous" else ""
-        results = db.search_membres(query=query, niveau=niveau)
+        batiment = self.batiment_spinner.text if self.batiment_spinner.text != "Batiment" else ""
+        etablissement = self.etab_spinner.text if self.etab_spinner.text != "Etablissement" else ""
+        results = db.search_membres(query=query, niveau=niveau,
+                                    batiment=batiment, etablissement=etablissement)
         self._update_list(results)
 
     def _update_list(self, results):
         self.result_list.clear_widgets()
+        self.count_label.text = "{} membre(s)".format(len(results))
         if not results:
-            self.result_list.add_widget(
-                Label(text="Aucun resultat", color=(0.6, 0.6, 0.8, 1),
-                      size_hint_y=None, height=dp(40), font_size=dp(13))
-            )
+            self.result_list.add_widget(Label(
+                text="Aucun resultat", color=(0.5, 0.6, 0.8, 1),
+                size_hint_y=None, height=dp(40), font_size=dp(13)
+            ))
             return
         for m in results:
-            row = MemberRow(m)
-            self.result_list.add_widget(row)
+            self.result_list.add_widget(MemberRow(m, on_tap=self._show_member_profile))
 
     def _load_stats(self):
         def load():
@@ -188,6 +301,240 @@ class DashboardScreen(Screen):
         self.chart_image.source = path
         self.chart_image.reload()
 
+    # FICHE MEMBRE
+    def _show_member_profile(self, membre):
+        content = BoxLayout(orientation='vertical', padding=dp(14), spacing=dp(10))
+
+        # Header photo + nom
+        header = BoxLayout(size_hint_y=None, height=dp(100), spacing=dp(12))
+        photo_path = membre.get('photo', '')
+        if photo_path and os.path.exists(photo_path):
+            header.add_widget(Image(
+                source=photo_path, size_hint=(None, 1), width=dp(90),
+                allow_stretch=True, keep_ratio=True
+            ))
+        else:
+            sexe_color = (0.25, 0.6, 1, 1) if membre.get('sexe') == 'M' else (1, 0.45, 0.75, 1)
+            init_box = BoxLayout(size_hint=(None, 1), width=dp(80))
+            init_box.add_widget(Label(
+                text="[b]{}[/b]".format(membre.get('nom', '?')[0].upper()),
+                markup=True, font_size=dp(38), color=sexe_color,
+                halign='center', valign='middle'
+            ))
+            header.add_widget(init_box)
+
+        info_box = BoxLayout(orientation='vertical')
+        info_box.add_widget(Label(
+            text="[b]{}[/b]".format(membre.get('nom', '')), markup=True,
+            font_size=dp(14), color=(1, 1, 1, 1), halign='left',
+            text_size=(dp(185), None), size_hint_y=None, height=dp(26)
+        ))
+        sexe_txt = "Homme" if membre.get('sexe') == 'M' else "Femme"
+        info_box.add_widget(Label(
+            text="{} - {}".format(sexe_txt, membre.get('niveau', '')),
+            font_size=dp(12), color=(0.7, 0.85, 1, 1), halign='left',
+            text_size=(dp(185), None), size_hint_y=None, height=dp(20)
+        ))
+        info_box.add_widget(Label(
+            text=membre.get('etablissement', ''),
+            font_size=dp(12), color=(1, 0.85, 0.1, 1), halign='left',
+            text_size=(dp(185), None), size_hint_y=None, height=dp(20)
+        ))
+        header.add_widget(info_box)
+        content.add_widget(header)
+
+        # Infos
+        def row(label, value, color=(0.85, 0.9, 1, 0.9)):
+            if not str(value).strip():
+                return
+            r = BoxLayout(size_hint_y=None, height=dp(26))
+            r.add_widget(Label(text=label, font_size=dp(11), color=(0.5, 0.65, 1, 0.7),
+                                size_hint=(None, 1), width=dp(95), halign='left',
+                                text_size=(dp(95), None)))
+            r.add_widget(Label(text=str(value), font_size=dp(12), color=color,
+                                halign='left', text_size=(dp(160), None)))
+            content.add_widget(r)
+
+        row("Batiment", membre.get('batiment', ''))
+        row("Promotion", membre.get('promotion', ''))
+        row("Commune", membre.get('commune_origine', ''))
+        row("Telephone", membre.get('telephone', ''), (0.4, 1, 0.65, 1))
+
+        # Boutons appel/SMS
+        telephone = str(membre.get('telephone', '')).strip()
+        if telephone:
+            btn_row = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
+            btn_appel = Button(
+                text="Appeler", background_color=(0.10, 0.55, 0.22, 1),
+                background_normal='', font_size=dp(13), color=(1, 1, 1, 1)
+            )
+            btn_sms = Button(
+                text="SMS", background_color=(0.18, 0.35, 0.75, 1),
+                background_normal='', font_size=dp(13), color=(1, 1, 1, 1)
+            )
+            def do_call(*a):
+                popup.dismiss()
+                open_phone(telephone)
+            def do_sms(*a):
+                popup.dismiss()
+                if platform == 'android':
+                    try:
+                        from android import activity
+                        from jnius import autoclass
+                        Intent = autoclass('android.content.Intent')
+                        Uri = autoclass('android.net.Uri')
+                        intent = Intent(Intent.ACTION_VIEW)
+                        intent.setData(Uri.parse('sms:' + telephone))
+                        activity.startActivity(intent)
+                    except Exception:
+                        pass
+            btn_appel.bind(on_release=do_call)
+            btn_sms.bind(on_release=do_sms)
+            btn_row.add_widget(btn_appel)
+            btn_row.add_widget(btn_sms)
+            content.add_widget(btn_row)
+
+        btn_close = Button(
+            text="Fermer", size_hint_y=None, height=dp(42),
+            background_color=(0.3, 0.15, 0.15, 1), background_normal='',
+            font_size=dp(13), color=(1, 1, 1, 1)
+        )
+        content.add_widget(btn_close)
+
+        popup = Popup(title=membre.get('nom', ''), content=content,
+                      size_hint=(0.90, 0.70),
+                      background_color=(0.06, 0.09, 0.28, 1))
+        btn_close.bind(on_release=popup.dismiss)
+        popup.open()
+
+    # MISE A JOUR CSV
+    def _show_update_options(self, *args):
+        content = BoxLayout(orientation='vertical', padding=dp(15), spacing=dp(10))
+        content.add_widget(Label(
+            text="Ou se trouve le fichier CSV ?",
+            color=(0.85, 0.9, 1, 1), font_size=dp(14),
+            halign='center', size_hint_y=None, height=dp(32)
+        ))
+        btn_dl = Button(text="Dossier Telechargements", size_hint_y=None, height=dp(50),
+                        background_color=(0.10, 0.45, 0.72, 1), background_normal='',
+                        font_size=dp(13), color=(1, 1, 1, 1))
+        btn_br = Button(text="Choisir le fichier", size_hint_y=None, height=dp(50),
+                        background_color=(0.28, 0.18, 0.65, 1), background_normal='',
+                        font_size=dp(13), color=(1, 1, 1, 1))
+        btn_ca = Button(text="Annuler", size_hint_y=None, height=dp(40),
+                        background_color=(0.35, 0.15, 0.15, 1), background_normal='',
+                        font_size=dp(12), color=(1, 1, 1, 1))
+        popup = Popup(title="Mettre a jour", content=content,
+                      size_hint=(0.88, 0.50),
+                      background_color=(0.05, 0.08, 0.25, 1))
+        def dl(*a):
+            popup.dismiss()
+            self._import_from_downloads()
+        def br(*a):
+            popup.dismiss()
+            self._browse_csv()
+        btn_dl.bind(on_release=dl)
+        btn_br.bind(on_release=br)
+        btn_ca.bind(on_release=popup.dismiss)
+        content.add_widget(btn_dl)
+        content.add_widget(btn_br)
+        content.add_widget(btn_ca)
+        popup.open()
+
+    def _import_from_downloads(self, *args):
+        downloads = get_downloads_dir()
+        csv_path = os.path.join(downloads, 'cenad_membres.csv')
+        if os.path.exists(csv_path):
+            self._confirm_import(csv_path)
+            return
+        try:
+            csvs = [f for f in os.listdir(downloads) if f.lower().endswith('.csv')]
+            if csvs:
+                self._confirm_import(os.path.join(downloads, csvs[0]))
+            else:
+                self.import_status.text = "Aucun fichier CSV dans Telechargements"
+                self.import_status.color = (1, 0.4, 0.4, 1)
+        except Exception:
+            self.import_status.text = "Dossier Telechargements introuvable"
+            self.import_status.color = (1, 0.4, 0.4, 1)
+
+    def _browse_csv(self, *args):
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+        start = get_downloads_dir()
+        if not os.path.exists(start):
+            start = os.path.expanduser('~')
+        fc = FileChooserListView(filters=['*.csv', '*.CSV'], path=start)
+        content.add_widget(fc)
+        btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+        sel = Button(text="Selectionner", background_color=(0.10, 0.52, 0.10, 1),
+                     background_normal='', color=(1, 1, 1, 1), font_size=dp(13))
+        can = Button(text="Annuler", background_color=(0.45, 0.10, 0.10, 1),
+                     background_normal='', color=(1, 1, 1, 1), font_size=dp(13))
+        btn_row.add_widget(sel)
+        btn_row.add_widget(can)
+        content.add_widget(btn_row)
+        fp = Popup(title="Choisir le fichier CSV", content=content,
+                   size_hint=(0.95, 0.85),
+                   background_color=(0.05, 0.08, 0.25, 1))
+        def on_select(*a):
+            if fc.selection:
+                fp.dismiss()
+                self._confirm_import(fc.selection[0])
+        sel.bind(on_release=on_select)
+        can.bind(on_release=fp.dismiss)
+        fp.open()
+
+    def _confirm_import(self, csv_path):
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                lines = max(0, sum(1 for _ in f) - 1)
+        except Exception:
+            lines = '?'
+        content = BoxLayout(orientation='vertical', padding=dp(15), spacing=dp(12))
+        content.add_widget(Label(
+            text="Fichier : {}\n{} membre(s) detecte(s)\n\nCela remplacera la liste actuelle.".format(
+                os.path.basename(csv_path), lines),
+            color=(1, 1, 1, 1), font_size=dp(13), halign='center'
+        ))
+        btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+        ok = Button(text="Mettre a jour", background_color=(0.10, 0.52, 0.10, 1),
+                    background_normal='', color=(1, 1, 1, 1))
+        ca = Button(text="Annuler", background_color=(0.45, 0.10, 0.10, 1),
+                    background_normal='', color=(1, 1, 1, 1))
+        btn_row.add_widget(ok)
+        btn_row.add_widget(ca)
+        content.add_widget(btn_row)
+        popup = Popup(title="Confirmer", content=content,
+                      size_hint=(0.85, 0.42),
+                      background_color=(0.06, 0.10, 0.30, 1))
+        def do(*a):
+            popup.dismiss()
+            self._do_import_csv(csv_path)
+        ok.bind(on_release=do)
+        ca.bind(on_release=popup.dismiss)
+        popup.open()
+
+    def _do_import_csv(self, csv_path):
+        self.import_status.text = "Import en cours..."
+        self.import_status.color = (1, 0.85, 0.1, 1)
+        def do():
+            try:
+                count = db.import_from_csv(csv_path)
+                Clock.schedule_once(lambda dt: self._on_import_done(count))
+            except Exception as e:
+                Clock.schedule_once(lambda dt: self._on_import_error(str(e)))
+        threading.Thread(target=do, daemon=True).start()
+
+    def _on_import_done(self, count):
+        self.import_status.text = "{} membre(s) importes !".format(count)
+        self.import_status.color = (0.4, 1, 0.4, 1)
+        self._load_stats()
+        self._search()
+
+    def _on_import_error(self, err):
+        self.import_status.text = "Erreur : {}".format(err[:50])
+        self.import_status.color = (1, 0.4, 0.4, 1)
+
     def _update_bg(self, *args):
         self.bg_rect.size = self.size
         self.bg_rect.pos = self.pos
@@ -196,50 +543,87 @@ class DashboardScreen(Screen):
 class StatCard(BoxLayout):
     def __init__(self, label, value, color_hex, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
+        r, g, b = [int(color_hex.lstrip('#')[i:i+2], 16)/255 for i in (0, 2, 4)]
         with self.canvas.before:
-            r, g, b = self._hex_rgb(color_hex)
-            Color(r, g, b, 0.8)
-            self.rect = Rectangle(size=self.size, pos=self.pos)
-        self.bind(size=lambda *a: setattr(self.rect, 'size', self.size),
-                  pos=lambda *a: setattr(self.rect, 'pos', self.pos))
-        self.add_widget(Label(text=label, font_size=dp(10), color=(0.8, 0.9, 1, 1),
-                               size_hint_y=0.4))
-        self.value_label = Label(text=value, font_size=dp(20), bold=True,
+            Color(r, g, b, 0.85)
+            self._rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(8)])
+        self.bind(size=lambda *a: setattr(self._rect, 'size', self.size),
+                  pos=lambda *a: setattr(self._rect, 'pos', self.pos))
+        self.add_widget(Label(text=label, font_size=dp(10), color=(0.8, 0.9, 1, 0.9),
+                               size_hint_y=0.4, bold=True))
+        self.value_label = Label(text=value, font_size=dp(22), bold=True,
                                   color=(1, 1, 1, 1), size_hint_y=0.6)
         self.add_widget(self.value_label)
 
-    def _hex_rgb(self, h):
-        h = h.lstrip('#')
-        return tuple(int(h[i:i+2], 16) / 255 for i in (0, 2, 4))
-
 
 class MemberRow(BoxLayout):
-    def __init__(self, membre, **kwargs):
-        super().__init__(size_hint_y=None, height=dp(48), spacing=dp(5), **kwargs)
+    def __init__(self, membre, on_tap=None, **kwargs):
+        super().__init__(size_hint_y=None, height=dp(56), spacing=dp(6),
+                         padding=(dp(8), dp(4)), **kwargs)
+        self.membre = membre
+        self.on_tap = on_tap
+        self._pressed = False
+
         with self.canvas.before:
-            Color(0.1, 0.15, 0.4, 0.7)
-            self.rect = Rectangle(size=self.size, pos=self.pos)
-        self.bind(size=lambda *a: setattr(self.rect, 'size', self.size),
-                  pos=lambda *a: setattr(self.rect, 'pos', self.pos))
+            Color(0.10, 0.14, 0.40, 0.75)
+            self._rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(8)])
+        self.bind(size=lambda *a: setattr(self._rect, 'size', self.size),
+                  pos=lambda *a: setattr(self._rect, 'pos', self.pos))
 
-        # CORRECTION : remplacement emoji par texte
-        sexe_txt = "H" if membre.get('sexe') == 'M' else "F"
-        sexe_color = (0.4, 0.8, 1, 1) if membre.get('sexe') == 'M' else (1, 0.6, 0.8, 1)
-
-        self.add_widget(Label(text=sexe_txt, size_hint=(None, 1), width=dp(25),
-                               font_size=dp(14), color=sexe_color, bold=True))
+        photo_path = membre.get('photo', '')
+        avatar_box = BoxLayout(size_hint=(None, 1), width=dp(44))
+        if photo_path and os.path.exists(photo_path):
+            avatar_box.add_widget(Image(
+                source=photo_path, allow_stretch=True, keep_ratio=True,
+                size_hint=(None, None), size=(dp(40), dp(40)),
+                pos_hint={'center_x': 0.5, 'center_y': 0.5}
+            ))
+        else:
+            sexe_color = (0.3, 0.65, 1, 1) if membre.get('sexe') == 'M' else (1, 0.45, 0.75, 1)
+            avatar_box.add_widget(Label(
+                text="[b]{}[/b]".format(membre.get('nom', '?')[0].upper()),
+                markup=True, font_size=dp(18), color=sexe_color,
+                halign='center', valign='middle'
+            ))
+        self.add_widget(avatar_box)
 
         info = BoxLayout(orientation='vertical')
-        info.add_widget(Label(text=membre.get('nom', ''), font_size=dp(13),
-                               color=(1, 1, 1, 1), halign='left',
-                               text_size=(dp(200), None)))
+        info.add_widget(Label(
+            text=membre.get('nom', ''), font_size=dp(13), bold=True,
+            color=(1, 1, 1, 1), halign='left', text_size=(dp(165), None)
+        ))
         info.add_widget(Label(
             text="{} | {}".format(membre.get('etablissement', ''), membre.get('batiment', '')),
-            font_size=dp(10), color=(0.6, 0.8, 1, 0.8), halign='left',
-            text_size=(dp(200), None)
+            font_size=dp(10), color=(0.6, 0.8, 1, 0.8),
+            halign='left', text_size=(dp(165), None)
         ))
         self.add_widget(info)
 
-        self.add_widget(Label(text=membre.get('niveau', ''), size_hint=(None, 1),
-                               width=dp(40), font_size=dp(12),
-                               color=(1, 0.85, 0.1, 1), bold=True))
+        badge = Label(
+            text="[b]{}[/b]".format(membre.get('niveau', '')), markup=True,
+            size_hint=(None, None), size=(dp(36), dp(22)),
+            font_size=dp(11), color=(0.05, 0.05, 0.15, 1),
+            halign='center', valign='middle', pos_hint={'center_y': 0.5}
+        )
+        with badge.canvas.before:
+            Color(1, 0.85, 0.1, 1)
+            self._br = RoundedRectangle(size=badge.size, pos=badge.pos, radius=[dp(4)])
+        badge.bind(size=lambda *a: setattr(self._br, 'size', badge.size),
+                   pos=lambda *a: setattr(self._br, 'pos', badge.pos))
+        self.add_widget(badge)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self._pressed = True
+            return True
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if self._pressed:
+            self._pressed = False
+            if self.collide_point(*touch.pos) and self.on_tap:
+                membre_complet = db.get_membre_by_id(self.membre['id'])
+                if membre_complet:
+                    self.on_tap(membre_complet)
+            return True
+        return super().on_touch_up(touch)
