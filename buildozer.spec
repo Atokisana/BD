@@ -4,16 +4,16 @@ package.name = cenad
 package.domain = org.cenad
 
 source.dir = .
-source.include_exts = py,kv,png,jpg,sqlite,db,csv,json
-source.include_patterns = assets/*,assets/icons/*,data/*,screens/*,screens/__init__.py
+source.include_exts = py,kv,png,jpg,jpeg,PNG,JPG,sqlite,db,csv,json,zip
+source.include_patterns = assets/*,assets/icons/*,data/*,data/photos/*,screens/*,screens/__init__.py
 
 version = 1.0.0
 
-requirements = python3,kivy==2.3.0,sqlite3,pandas,numpy,scipy,matplotlib,pillow
+requirements = python3,kivy==2.3.0,sqlite3,pandas,numpy,matplotlib,pillow,reportlab
 
 orientation = portrait
 
-android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,READ_MEDIA_IMAGES
 
 android.api = 33
 android.minapi = 21
