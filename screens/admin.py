@@ -200,32 +200,62 @@ class AdminScreen(Screen):
         self.export_status.text = "Export CSV en cours..."
 
     def _export_zip(self, *args):
-        """Exporte CSV + photos dans un zip."""
+        """Exporte CSV + photos renommees avec nom du membre dans un zip."""
         def do():
             try:
+                # Exporter CSV
                 csv_path = db.export_csv()
                 zip_path = os.path.join(get_data_dir(), 'cenad_update.zip')
                 photos_dir = get_photos_dir()
 
+                # Charger tous les membres pour relier photo -> nom
+                membres = db.get_all_membres(limit=1000)
+                # Construire un dict photo_path -> nom_fichier_propre
+                photo_map = {}
+                for m in membres:
+                    photo = m.get('photo', '').strip()
+                    nom = m.get('nom', '').strip()
+                    if photo and os.path.exists(photo) and nom:
+                        # Nom de fichier propre: NOM_PRENOM.jpg
+                        ext = os.path.splitext(photo)[1].lower() or '.jpg'
+                        safe_name = nom.replace(' ', '_').replace('/', '_') + ext
+                        photo_map[photo] = safe_name
+
+                # Mettre a jour le CSV avec les nouveaux noms de photos
+                import csv as csv_mod
+                rows = []
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    reader = csv_mod.DictReader(f)
+                    fieldnames = reader.fieldnames
+                    for row in reader:
+                        photo_src = row.get('photo', '').strip()
+                        if photo_src in photo_map:
+                            row['photo'] = 'photos/' + photo_map[photo_src]
+                        rows.append(row)
+
+                # Réécrire le CSV avec les nouveaux chemins
+                with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv_mod.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(rows)
+
+                # Créer le ZIP
                 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                     zf.write(csv_path, 'cenad_membres.csv')
-                    # Ajouter toutes les photos
-                    if os.path.exists(photos_dir):
-                        for fname in os.listdir(photos_dir):
-                            fpath = os.path.join(photos_dir, fname)
-                            if os.path.isfile(fpath):
-                                zf.write(fpath, os.path.join('photos', fname))
+                    for photo_src, safe_name in photo_map.items():
+                        zf.write(photo_src, os.path.join('photos', safe_name))
 
+                nb_photos = len(photo_map)
                 Clock.schedule_once(lambda dt: setattr(
                     self.export_status, 'text',
-                    "ZIP sauvegarde : data/cenad_update.zip"
+                    "ZIP OK : CSV + {} photo(s)".format(nb_photos)
                 ))
             except Exception as e:
                 Clock.schedule_once(lambda dt: setattr(
                     self.export_status, 'text', "Erreur: {}".format(str(e)[:40])
                 ))
         threading.Thread(target=do, daemon=True).start()
-        self.export_status.text = "Creation du ZIP en cours..."
+        self.export_status.text = "Creation ZIP en cours..."
 
     def _load_list(self):
         self.member_list.clear_widgets()

@@ -251,3 +251,87 @@ def import_from_csv(csv_path):
     conn.commit()
     conn.close()
     return len(membres)
+
+
+def import_from_zip(zip_path):
+    """
+    Importe depuis un ZIP contenant cenad_membres.csv + dossier photos/.
+    Extrait les photos, met a jour les chemins dans le CSV, importe tout.
+    Retourne le nombre de membres importes.
+    """
+    import zipfile as zf
+    import tempfile
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    photos_dir = os.path.join(base_dir, 'data', 'photos')
+    os.makedirs(photos_dir, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Extraire le ZIP
+        with zf.ZipFile(zip_path, 'r') as z:
+            z.extractall(tmpdir)
+
+        # Chercher le CSV
+        csv_path = None
+        for root, dirs, files in os.walk(tmpdir):
+            for f in files:
+                if f.lower().endswith('.csv'):
+                    csv_path = os.path.join(root, f)
+                    break
+
+        if not csv_path:
+            raise ValueError("Aucun fichier CSV trouve dans le ZIP")
+
+        # Copier les photos dans data/photos/
+        photos_tmp = os.path.join(tmpdir, 'photos')
+        photo_count = 0
+        if os.path.exists(photos_tmp):
+            for fname in os.listdir(photos_tmp):
+                src = os.path.join(photos_tmp, fname)
+                dst = os.path.join(photos_dir, fname)
+                if os.path.isfile(src):
+                    import shutil
+                    shutil.copy2(src, dst)
+                    photo_count += 1
+
+        # Lire le CSV et mettre a jour les chemins photos
+        membres = []
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                nom = row.get('nom', '').strip()
+                if not nom:
+                    continue
+                # Mettre a jour le chemin photo
+                photo_rel = row.get('photo', '').strip()
+                if photo_rel:
+                    fname = os.path.basename(photo_rel)
+                    full_path = os.path.join(photos_dir, fname)
+                    photo_final = full_path if os.path.exists(full_path) else ''
+                else:
+                    photo_final = ''
+
+                membres.append((
+                    nom,
+                    row.get('sexe', 'M').strip(),
+                    row.get('niveau', 'L1').strip(),
+                    row.get('promotion', '').strip(),
+                    row.get('batiment', '').strip(),
+                    row.get('etablissement', '').strip(),
+                    row.get('commune_origine', '').strip(),
+                    row.get('telephone', '').strip(),
+                    photo_final,
+                ))
+
+        if not membres:
+            raise ValueError("Aucun membre valide dans le CSV")
+
+        conn = get_connection()
+        conn.execute("DELETE FROM membres")
+        conn.executemany(
+            "INSERT INTO membres (nom, sexe, niveau, promotion, batiment, etablissement, commune_origine, telephone, photo) VALUES (?,?,?,?,?,?,?,?,?)",
+            membres
+        )
+        conn.commit()
+        conn.close()
+        return len(membres)

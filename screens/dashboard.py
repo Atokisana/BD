@@ -100,78 +100,7 @@ class DashboardScreen(Screen):
         self.stats_grid.add_widget(self.stat_f)
         content.add_widget(self.stats_grid)
 
-        # RECHERCHE MULTI-CRITERES
-        search_card = BoxLayout(orientation='vertical', size_hint_y=None,
-                                height=dp(190), spacing=dp(6), padding=(dp(8), dp(8)))
-        with search_card.canvas.before:
-            Color(0.08, 0.11, 0.32, 1)
-            self._sc = RoundedRectangle(size=search_card.size, pos=search_card.pos, radius=[dp(10)])
-        search_card.bind(size=lambda *a: setattr(self._sc, 'size', search_card.size),
-                         pos=lambda *a: setattr(self._sc, 'pos', search_card.pos))
 
-        row1 = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
-        self.search_input = TextInput(
-            hint_text="Rechercher par nom...",
-            multiline=False, write_tab=False,
-            background_color=(0.12, 0.17, 0.42, 1),
-            foreground_color=(1, 1, 1, 1),
-            hint_text_color=(0.5, 0.6, 0.8, 1),
-            cursor_color=(1, 1, 1, 1), font_size=dp(13)
-        )
-        self.search_input.bind(text=self._on_search_text)
-        self.niveau_spinner = Spinner(
-            text="Niveau", values=["Tous", "L1", "L2", "L3", "M1", "M2"],
-            size_hint=(None, 1), width=dp(85),
-            background_color=(0.2, 0.3, 0.7, 1),
-            color=(1, 1, 1, 1), font_size=dp(12)
-        )
-        self.niveau_spinner.bind(text=self._on_filter_change)
-        row1.add_widget(self.search_input)
-        row1.add_widget(self.niveau_spinner)
-        search_card.add_widget(row1)
-
-        row2 = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
-        batiments = ["Batiment", "BLOC A", "BLOC B", "BLOC C", "BLOC D", "BLOC E",
-                     "BLOC F", "BLOC G", "BLOC H", "BLOC I",
-                     "PJ A", "PJ B", "PJ C", "PV B", "PV C", "Belle rose"]
-        self.batiment_spinner = Spinner(
-            text="Batiment", values=batiments,
-            size_hint=(0.5, 1),
-            background_color=(0.18, 0.28, 0.62, 1),
-            color=(1, 1, 1, 1), font_size=dp(11)
-        )
-        self.batiment_spinner.bind(text=self._on_filter_change)
-
-        etablissements = ["Etablissement", "ENSET", "ESP", "AGRO", "SCIENCES",
-                          "FLSH", "DEGSP", "ISAE", "IST", "ISISFA"]
-        self.etab_spinner = Spinner(
-            text="Etablissement", values=etablissements,
-            size_hint=(0.5, 1),
-            background_color=(0.18, 0.28, 0.62, 1),
-            color=(1, 1, 1, 1), font_size=dp(11)
-        )
-        self.etab_spinner.bind(text=self._on_filter_change)
-        row2.add_widget(self.batiment_spinner)
-        row2.add_widget(self.etab_spinner)
-        search_card.add_widget(row2)
-
-        row3 = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(6))
-        search_btn = Button(
-            text="Rechercher", size_hint=(0.75, 1),
-            background_color=(0.18, 0.45, 0.85, 1), background_normal='',
-            font_size=dp(13), color=(1, 1, 1, 1)
-        )
-        search_btn.bind(on_release=lambda x: self._search())
-        reset_btn = Button(
-            text="Reset", size_hint=(0.25, 1),
-            background_color=(0.35, 0.2, 0.55, 1), background_normal='',
-            font_size=dp(12), color=(1, 1, 1, 1)
-        )
-        reset_btn.bind(on_release=self._reset_filters)
-        row3.add_widget(search_btn)
-        row3.add_widget(reset_btn)
-        search_card.add_widget(row3)
-        content.add_widget(search_card)
 
         # BOUTON MISE A JOUR
         update_card = BoxLayout(orientation='vertical', size_hint_y=None,
@@ -233,33 +162,18 @@ class DashboardScreen(Screen):
         scroll.add_widget(content)
         main.add_widget(scroll)
         self.add_widget(main)
+        from kivy.clock import Clock
+        Clock.schedule_once(lambda dt: self._search(), 0.5)
 
     def on_enter(self):
-        self._load_stats()
-        self._search()
+        from kivy.clock import Clock
+        Clock.schedule_once(lambda dt: self._load_stats(), 0.2)
+        Clock.schedule_once(lambda dt: self._search(), 0.3)
 
-    def _on_search_text(self, instance, value):
-        if self._search_event:
-            self._search_event.cancel()
-        self._search_event = Clock.schedule_once(lambda dt: self._search(), 0.5)
 
-    def _on_filter_change(self, instance, value):
-        self._search()
-
-    def _reset_filters(self, *args):
-        self.search_input.text = ''
-        self.niveau_spinner.text = 'Tous'
-        self.batiment_spinner.text = 'Batiment'
-        self.etab_spinner.text = 'Etablissement'
-        self._search()
 
     def _search(self):
-        query = self.search_input.text.strip()
-        niveau = self.niveau_spinner.text if self.niveau_spinner.text != "Tous" else ""
-        batiment = self.batiment_spinner.text if self.batiment_spinner.text != "Batiment" else ""
-        etablissement = self.etab_spinner.text if self.etab_spinner.text != "Etablissement" else ""
-        results = db.search_membres(query=query, niveau=niveau,
-                                    batiment=batiment, etablissement=etablissement)
+        results = db.search_membres()
         self._update_list(results)
 
     def _update_list(self, results):
@@ -443,16 +357,26 @@ class DashboardScreen(Screen):
 
     def _import_from_downloads(self, *args):
         downloads = get_downloads_dir()
+        # Chercher ZIP en priorite
+        zip_path = os.path.join(downloads, 'cenad_update.zip')
+        if os.path.exists(zip_path):
+            self._confirm_import(zip_path)
+            return
+        # Sinon CSV
         csv_path = os.path.join(downloads, 'cenad_membres.csv')
         if os.path.exists(csv_path):
             self._confirm_import(csv_path)
             return
         try:
-            csvs = [f for f in os.listdir(downloads) if f.lower().endswith('.csv')]
-            if csvs:
+            files = os.listdir(downloads)
+            zips = [f for f in files if f.lower().endswith('.zip')]
+            csvs = [f for f in files if f.lower().endswith('.csv')]
+            if zips:
+                self._confirm_import(os.path.join(downloads, zips[0]))
+            elif csvs:
                 self._confirm_import(os.path.join(downloads, csvs[0]))
             else:
-                self.import_status.text = "Aucun fichier CSV dans Telechargements"
+                self.import_status.text = "Aucun fichier ZIP ou CSV trouve"
                 self.import_status.color = (1, 0.4, 0.4, 1)
         except Exception:
             self.import_status.text = "Dossier Telechargements introuvable"
@@ -463,7 +387,7 @@ class DashboardScreen(Screen):
         start = get_downloads_dir()
         if not os.path.exists(start):
             start = os.path.expanduser('~')
-        fc = FileChooserListView(filters=['*.csv', '*.CSV'], path=start)
+        fc = FileChooserListView(filters=['*.csv', '*.CSV', '*.zip', '*.ZIP'], path=start)
         content.add_widget(fc)
         btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
         sel = Button(text="Selectionner", background_color=(0.10, 0.52, 0.10, 1),
@@ -473,7 +397,7 @@ class DashboardScreen(Screen):
         btn_row.add_widget(sel)
         btn_row.add_widget(can)
         content.add_widget(btn_row)
-        fp = Popup(title="Choisir le fichier CSV", content=content,
+        fp = Popup(title="Choisir le fichier CSV ou ZIP", content=content,
                    size_hint=(0.95, 0.85),
                    background_color=(0.05, 0.08, 0.25, 1))
         def on_select(*a):
@@ -486,14 +410,31 @@ class DashboardScreen(Screen):
 
     def _confirm_import(self, csv_path):
         try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                lines = max(0, sum(1 for _ in f) - 1)
+            if csv_path.lower().endswith('.zip'):
+                import zipfile
+                with zipfile.ZipFile(csv_path, 'r') as z:
+                    names = z.namelist()
+                csvs = [n for n in names if n.lower().endswith('.csv')]
+                photos = [n for n in names if not n.lower().endswith('.csv') and not n.endswith('/')]
+                lines = '?'
+                if csvs:
+                    import tempfile, csv as csv_mod
+                    with zipfile.ZipFile(csv_path, 'r') as z:
+                        with tempfile.TemporaryDirectory() as tmp:
+                            z.extract(csvs[0], tmp)
+                            with open(os.path.join(tmp, csvs[0]), 'r', encoding='utf-8') as f:
+                                lines = max(0, sum(1 for _ in f) - 1)
+                info = "{} membre(s), {} photo(s)".format(lines, len(photos))
+            else:
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    lines = max(0, sum(1 for _ in f) - 1)
+                info = "{} membre(s)".format(lines)
         except Exception:
-            lines = '?'
+            info = '?'
         content = BoxLayout(orientation='vertical', padding=dp(15), spacing=dp(12))
         content.add_widget(Label(
-            text="Fichier : {}\n{} membre(s) detecte(s)\n\nCela remplacera la liste actuelle.".format(
-                os.path.basename(csv_path), lines),
+            text="Fichier : {}\n{}\n\nCela remplacera la liste actuelle.".format(
+                os.path.basename(csv_path), info),
             color=(1, 1, 1, 1), font_size=dp(13), halign='center'
         ))
         btn_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
@@ -514,12 +455,15 @@ class DashboardScreen(Screen):
         ca.bind(on_release=popup.dismiss)
         popup.open()
 
-    def _do_import_csv(self, csv_path):
+    def _do_import_csv(self, file_path):
         self.import_status.text = "Import en cours..."
         self.import_status.color = (1, 0.85, 0.1, 1)
         def do():
             try:
-                count = db.import_from_csv(csv_path)
+                if file_path.lower().endswith('.zip'):
+                    count = db.import_from_zip(file_path)
+                else:
+                    count = db.import_from_csv(file_path)
                 Clock.schedule_once(lambda dt: self._on_import_done(count))
             except Exception as e:
                 Clock.schedule_once(lambda dt: self._on_import_error(str(e)))

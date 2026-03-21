@@ -1,5 +1,5 @@
 """
-screens/historique.py - Historique institutionnel de la CENAD
+screens/historique.py - Historique CENAD avec photos presidents
 """
 
 from kivy.uix.screenmanager import Screen
@@ -7,42 +7,60 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.graphics import Color, Rectangle
+from kivy.uix.image import Image
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Ellipse
 from kivy.metrics import dp
+import os
+
+
+def get_asset_path(filename):
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for name in [filename, filename.lower(), filename.upper()]:
+        p = os.path.join(base, 'assets', name)
+        if os.path.exists(p):
+            return p
+    return os.path.join(base, 'assets', filename)
+
+
+def get_president_photo(nom):
+    if not nom:
+        return ''
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pres_dir = os.path.join(base, 'assets', 'presidents')
+    os.makedirs(pres_dir, exist_ok=True)
+    safe = nom.replace(' ', '_')
+    for ext in ['jpg', 'jpeg', 'png', 'JPG', 'PNG']:
+        p = os.path.join(pres_dir, '{}.{}'.format(safe, ext))
+        if os.path.exists(p):
+            return p
+    return ''
 
 
 PRESIDENTS = [
-    ("", "2012 – 2013", ""),
-    ("", "2013 – 2014", ""),
-    ("", "2014 – 2015", ""),
-    ("", "2015 – 2016", ""),
-    ("", "2016 – 2018", ""),
-    ("", "2018 – 2020", ""),
-    ("JIMMY Richard", "2020 – 2022", "Gestion de la periode COVID-19, resilience associative."),
-    ("", "2022 – 2023", ""),
-    ("RALAHADY Fanios", "2023 – 2024", ""),
-    ("Mysco Flobert", "2024 – 2025", ""),
-    ("BEVITA Casmir", "2025 – present", ""),
+    ("", "2012 - 2013", ""),
+    ("", "2013 - 2014", ""),
+    ("", "2014 - 2015", ""),
+    ("", "2015 - 2016", ""),
+    ("", "2016 - 2018", ""),
+    ("", "2018 - 2020", ""),
+    ("JIMMY Richard", "2020 - 2022", "Gestion de la periode COVID-19, resilience associative."),
+    ("", "2022 - 2023", ""),
+    ("RALAHADY Fanios", "2023 - 2024", ""),
+    ("Mysco Flobert", "2024 - 2025", ""),
+    ("BEVITA Casmir", "2025 - present", ""),
 ]
 
-HISTORIQUE_TEXT = """
-La CENAD (Communauté des Étudiants Natifs d'Andapa à Antsiranana) a été fondée en 2012 par un groupe d'étudiants originaires d'Andapa et des communes environnantes, poursuivant leurs études dans les établissements universitaires d'Antsiranana.
-
-Face à l'éloignement familial, aux défis d'adaptation à la vie universitaire et au besoin de solidarité entre compatriotes, ces pionniers ont décidé de créer une structure formelle d'entraide et de cohésion sociale.
+HISTORIQUE_TEXT = """La CENAD (Communaute des Etudiants Natifs d'Andapa a Antsiranana) a ete fondee en 2012 par un groupe d'etudiants originaires d'Andapa et des communes environnantes.
 
 OBJECTIFS FONDATEURS
-• Favoriser l'entraide mutuelle entre étudiants originaires d'Andapa
-• Faciliter l'intégration des nouveaux arrivants
-• Promouvoir l'excellence académique
-• Préserver les valeurs culturelles communes
-• Créer un réseau professionnel durable
-
-VISION
-Devenir la référence associative estudiantine à Antsiranana, reconnue pour son impact positif sur la réussite académique de ses membres et son rayonnement culturel.
+- Favoriser l'entraide mutuelle entre etudiants
+- Faciliter l'integration des nouveaux arrivants
+- Promouvoir l'excellence academique
+- Preserver les valeurs culturelles communes
+- Creer un reseau professionnel durable
 
 MISSION ACTUELLE
-L'association compte aujourd'hui des membres dans tous les établissements universitaires d'Antsiranana, répartis dans différents bâtiments universitaires. Elle organise régulièrement des activités académiques, culturelles et sportives.
-"""
+L'association organise regulierement des activites academiques, culturelles et sportives."""
 
 
 class HistoriqueScreen(Screen):
@@ -60,99 +78,135 @@ class HistoriqueScreen(Screen):
         main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(8))
 
         # Header
-        header = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
-        back_btn = Button(text="◀", size_hint=(None, 1), width=dp(40),
-                          background_color=(0.2, 0.3, 0.7, 1), background_normal='')
+        header = BoxLayout(size_hint_y=None, height=dp(56), spacing=dp(10))
+        with header.canvas.before:
+            Color(0.04, 0.05, 0.18, 1)
+            h_rect = Rectangle(size=header.size, pos=header.pos)
+        header.bind(size=lambda *a: setattr(h_rect, 'size', header.size),
+                    pos=lambda *a: setattr(h_rect, 'pos', header.pos))
+
+        back_btn = Button(text="< Retour", size_hint=(None, 1), width=dp(80),
+                          background_color=(0.15, 0.25, 0.6, 1), background_normal='',
+                          font_size=dp(12), color=(1, 1, 1, 1))
         back_btn.bind(on_release=lambda x: setattr(self.manager, 'current', 'accueil'))
         header.add_widget(back_btn)
-        header.add_widget(Label(text="[b]📜 HISTORIQUE CENAD[/b]", markup=True,
-                                 font_size=dp(15), color=(1, 0.85, 0.1, 1)))
+
+        icon_path = get_asset_path('icons/ic_historique.png')
+        if os.path.exists(icon_path):
+            header.add_widget(Image(source=icon_path, size_hint=(None, 1),
+                                    width=dp(32), allow_stretch=True, keep_ratio=True))
+
+        header.add_widget(Label(text="[b]HISTORIQUE CENAD[/b]", markup=True,
+                                font_size=dp(15), color=(1, 0.85, 0.1, 1)))
         main.add_widget(header)
 
         scroll = ScrollView()
-        content = BoxLayout(orientation='vertical', spacing=dp(12),
+        content = BoxLayout(orientation='vertical', spacing=dp(10),
                              size_hint_y=None, padding=(dp(5), dp(5)))
         content.bind(minimum_height=content.setter('height'))
 
-        # Date fondation
-        self._add_section_card(content, "📅 Fondée en 2012",
-                                "Antsiranana, Madagascar", "#1565C0")
+        # Carte fondation
+        fond = BoxLayout(size_hint_y=None, height=dp(55), padding=(dp(14), dp(5)))
+        with fond.canvas.before:
+            Color(0.09, 0.40, 0.78, 0.85)
+            f_rect = Rectangle(size=fond.size, pos=fond.pos)
+        fond.bind(size=lambda *a: setattr(f_rect, 'size', fond.size),
+                  pos=lambda *a: setattr(f_rect, 'pos', fond.pos))
+        fond.add_widget(Label(
+            text="[b]Fondee en 2012[/b]  |  Antsiranana, Madagascar",
+            markup=True, font_size=dp(13), color=(1, 1, 1, 1), halign='left'
+        ))
+        content.add_widget(fond)
 
-        # Texte historique
-        hist_label = Label(
-            text=HISTORIQUE_TEXT,
-            font_size=dp(12),
-            color=(0.85, 0.9, 1, 0.95),
-            halign='left',
-            text_size=(None, None),
-            size_hint_y=None
+        # Texte
+        hist_lbl = Label(
+            text=HISTORIQUE_TEXT, font_size=dp(12),
+            color=(0.85, 0.9, 1, 0.95), halign='left',
+            text_size=(None, None), size_hint_y=None
         )
-        hist_label.bind(width=lambda *x: setattr(hist_label, 'text_size', (hist_label.width, None)),
-                         texture_size=lambda *x: setattr(hist_label, 'height', hist_label.texture_size[1]))
-        content.add_widget(hist_label)
+        hist_lbl.bind(
+            width=lambda *x: setattr(hist_lbl, 'text_size', (hist_lbl.width, None)),
+            texture_size=lambda *x: setattr(hist_lbl, 'height', hist_lbl.texture_size[1])
+        )
+        content.add_widget(hist_lbl)
 
-        # Présidents
-        pres_title = Label(
-            text="[b]👑 PRÉSIDENTS SUCCESSIFS[/b]", markup=True,
+        # Presidents
+        content.add_widget(Label(
+            text="[b]PRESIDENTS SUCCESSIFS[/b]", markup=True,
             font_size=dp(14), color=(1, 0.85, 0.1, 1),
-            size_hint_y=None, height=dp(40)
-        )
-        content.add_widget(pres_title)
+            size_hint_y=None, height=dp(38)
+        ))
 
         for nom, annees, mission in PRESIDENTS:
-            card = self._make_president_card(nom, annees, mission)
-            content.add_widget(card)
+            content.add_widget(PresidentCard(nom, annees, mission))
+
+        content.add_widget(Label(
+            text="Photos presidents : placez-les dans assets/presidents/\nEx: JIMMY_Richard.jpg",
+            font_size=dp(10), color=(0.45, 0.55, 0.75, 0.7),
+            size_hint_y=None, height=dp(40), halign='center'
+        ))
 
         scroll.add_widget(content)
         main.add_widget(scroll)
         self.add_widget(main)
 
-    def _add_section_card(self, parent, title, subtitle, color_hex):
-        card = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(60),
-                          padding=(dp(15), dp(5)))
-        r, g, b = [int(color_hex.lstrip('#')[i:i+2], 16)/255 for i in (0, 2, 4)]
-        with card.canvas.before:
-            Color(r, g, b, 0.85)
-            rect = Rectangle(size=card.size, pos=card.pos)
-        card.bind(size=lambda *a: setattr(rect, 'size', card.size),
-                  pos=lambda *a: setattr(rect, 'pos', card.pos))
-        card.add_widget(Label(text=f"[b]{title}[/b]", markup=True, font_size=dp(14),
-                               color=(1, 1, 1, 1), halign='left', text_size=(dp(280), None)))
-        card.add_widget(Label(text=subtitle, font_size=dp(11), color=(0.8, 0.9, 1, 0.9),
-                               halign='left', text_size=(dp(280), None)))
-        parent.add_widget(card)
 
-    def _make_president_card(self, nom, annees, mission):
-        card = BoxLayout(orientation='vertical', size_hint_y=None,
-                          padding=(dp(15), dp(8)), spacing=dp(3))
-        with card.canvas.before:
-            Color(0.12, 0.18, 0.45, 0.8)
-            rect = Rectangle(size=card.size, pos=card.pos)
-        card.bind(size=lambda *a: setattr(rect, 'size', card.size),
-                  pos=lambda *a: setattr(rect, 'pos', card.pos))
+class PresidentCard(BoxLayout):
+    def __init__(self, nom, annees, mission, **kwargs):
+        super().__init__(orientation='horizontal', size_hint_y=None,
+                         height=dp(68), spacing=dp(10),
+                         padding=(dp(10), dp(8)), **kwargs)
+        with self.canvas.before:
+            Color(0.10, 0.15, 0.42, 0.8)
+            self._rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(8)])
+        self.bind(size=lambda *a: setattr(self._rect, 'size', self.size),
+                  pos=lambda *a: setattr(self._rect, 'pos', self.pos))
 
-        nom_affiche = nom if nom else "( Inconnu )"
-        couleur_nom = (1, 0.85, 0.1, 1) if nom else (0.5, 0.6, 0.7, 0.7)
-        card.add_widget(Label(text=f"[b]{nom_affiche}[/b]", markup=True, font_size=dp(13),
-                               color=couleur_nom, halign='left',
-                               size_hint_y=None, height=dp(22),
-                               text_size=(dp(280), None)))
-        card.add_widget(Label(text=f"Date: {annees}", font_size=dp(11),
-                               color=(0.6, 0.8, 1, 1), halign='left',
-                               size_hint_y=None, height=dp(18),
-                               text_size=(dp(280), None)))
-        mission_lbl = Label(text=mission if mission else "", font_size=dp(11),
-                             color=(0.75, 0.85, 1, 0.85), halign='left',
-                             text_size=(None, None), size_hint_y=None)
-        mission_lbl.bind(
-            width=lambda *x: setattr(mission_lbl, 'text_size', (mission_lbl.width, None)),
-            texture_size=lambda *x: setattr(mission_lbl, 'height', mission_lbl.texture_size[1])
-        )
-        card.add_widget(mission_lbl)
+        # Cercle photo
+        circle_box = BoxLayout(size_hint=(None, 1), width=dp(50))
+        clr = (1, 0.85, 0.1, 1) if nom else (0.3, 0.35, 0.55, 0.6)
+        with circle_box.canvas:
+            Color(*clr)
+            self._ell = Ellipse(size=(dp(44), dp(44)), pos=circle_box.pos)
+        circle_box.bind(pos=lambda *a: setattr(
+            self._ell, 'pos',
+            (circle_box.x + dp(3), circle_box.y + (circle_box.height - dp(44))/2)
+        ))
 
-        def update_height(*a):
-            card.height = dp(22) + dp(18) + mission_lbl.height + dp(16)
-        mission_lbl.bind(height=update_height)
-        card.height = dp(80)
+        photo_path = get_president_photo(nom)
+        if photo_path:
+            circle_box.add_widget(Image(
+                source=photo_path, allow_stretch=True, keep_ratio=False,
+                size_hint=(None, None), size=(dp(44), dp(44))
+            ))
+        else:
+            initiale = nom[0].upper() if nom else '?'
+            circle_box.add_widget(Label(
+                text="[b]{}[/b]".format(initiale), markup=True,
+                font_size=dp(20),
+                color=(0.05, 0.05, 0.15, 1) if nom else (0.5, 0.55, 0.75, 0.8),
+                halign='center', valign='middle'
+            ))
+        self.add_widget(circle_box)
 
-        return card
+        # Texte
+        info = BoxLayout(orientation='vertical')
+        nom_txt = nom if nom else "( Inconnu )"
+        nom_clr = (1, 0.85, 0.1, 1) if nom else (0.5, 0.6, 0.7, 0.7)
+        info.add_widget(Label(
+            text="[b]{}[/b]".format(nom_txt), markup=True,
+            font_size=dp(13), color=nom_clr, halign='left',
+            size_hint_y=None, height=dp(22), text_size=(dp(215), None)
+        ))
+        info.add_widget(Label(
+            text="{}".format(annees), font_size=dp(11),
+            color=(0.6, 0.8, 1, 1), halign='left',
+            size_hint_y=None, height=dp(18), text_size=(dp(215), None)
+        ))
+        if mission:
+            info.add_widget(Label(
+                text=mission, font_size=dp(10),
+                color=(0.75, 0.85, 1, 0.85), halign='left',
+                size_hint_y=None, height=dp(16), text_size=(dp(215), None)
+            ))
+        self.add_widget(info)
