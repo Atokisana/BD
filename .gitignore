@@ -1,0 +1,6 @@
+data/cenad.db
+data/*.csv
+data/*.zip
+data/photos/
+__pycache__/
+*.pyc

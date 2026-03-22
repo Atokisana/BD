@@ -23,8 +23,25 @@ def get_asset_path(filename):
 
 
 def get_president_photo(nom):
+    """Cherche la photo du president dans la base de donnees membres."""
     if not nom:
         return ''
+    try:
+        import db_manager as db
+        conn = db.get_connection()
+        # Chercher par nom exact ou partiel
+        row = conn.execute(
+            "SELECT photo FROM membres WHERE nom LIKE ? LIMIT 1",
+            ('%' + nom.split()[0] + '%',)
+        ).fetchone()
+        conn.close()
+        if row:
+            photo = dict(row).get('photo', '')
+            if photo and os.path.exists(photo):
+                return photo
+    except Exception:
+        pass
+    # Sinon chercher dans assets/presidents/
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     pres_dir = os.path.join(base, 'assets', 'presidents')
     os.makedirs(pres_dir, exist_ok=True)
@@ -34,6 +51,7 @@ def get_president_photo(nom):
         if os.path.exists(p):
             return p
     return ''
+
 
 
 PRESIDENTS = [
@@ -140,11 +158,7 @@ class HistoriqueScreen(Screen):
         for nom, annees, mission in PRESIDENTS:
             content.add_widget(PresidentCard(nom, annees, mission))
 
-        content.add_widget(Label(
-            text="Photos presidents : placez-les dans assets/presidents/\nEx: JIMMY_Richard.jpg",
-            font_size=dp(10), color=(0.45, 0.55, 0.75, 0.7),
-            size_hint_y=None, height=dp(40), halign='center'
-        ))
+
 
         scroll.add_widget(content)
         main.add_widget(scroll)

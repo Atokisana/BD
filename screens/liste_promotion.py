@@ -130,11 +130,12 @@ class PromotionSection(BoxLayout):
 
         # Membres
         conn = db.get_connection()
-        membres = conn.execute(
+        rows = conn.execute(
             "SELECT nom, sexe, niveau, batiment, etablissement, photo FROM membres WHERE promotion=? ORDER BY niveau, nom",
             (promo,)
         ).fetchall()
         conn.close()
+        membres = [dict(m) for m in rows]
 
         for m in membres:
             self.add_widget(MemberRowCircle(m, r, g, b))

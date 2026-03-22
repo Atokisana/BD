@@ -8,7 +8,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.image import Image
-from kivy.graphics import Color, Rectangle, RoundedRectangle, Ellipse, StencilPush, StencilUse, StencilUnUse, StencilPop
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Ellipse
 from kivy.metrics import dp
 import os
 import db_manager as db
@@ -89,10 +89,11 @@ class ListeBatimentScreen(Screen):
     def _load_data(self):
         self.content.clear_widgets()
         conn = db.get_connection()
-        batiments = conn.execute(
+        rows = conn.execute(
             "SELECT batiment, COUNT(*) as total FROM membres GROUP BY batiment ORDER BY batiment"
         ).fetchall()
         conn.close()
+        batiments = [dict(r) for r in rows]
 
         for i, row in enumerate(batiments):
             name = row['batiment'] or 'Non defini'
@@ -123,11 +124,12 @@ class BatimentSection(BoxLayout):
 
         # Membres
         conn = db.get_connection()
-        membres = conn.execute(
+        rows = conn.execute(
             "SELECT nom, sexe, niveau, promotion, etablissement, photo FROM membres WHERE batiment=? ORDER BY nom",
             (batiment_name,)
         ).fetchall()
         conn.close()
+        membres = [dict(m) for m in rows]
 
         for m in membres:
             self.add_widget(MemberRowCircle(m, r, g, b))
@@ -170,42 +172,29 @@ class MemberRowCircle(BoxLayout):
 
 
 class RoundPhoto(BoxLayout):
-    """Photo circulaire avec stencil ou initiale."""
+    """Photo avec cercle colore ou initiale."""
     def __init__(self, membre, size_dp=40, **kwargs):
         super().__init__(size_hint=(None, None),
                          size=(dp(size_dp), dp(size_dp)), **kwargs)
         photo = membre.get('photo', '') or ''
         nom = membre.get('nom', '?')
         sexe = membre.get('sexe', 'M')
+        sexe_color = (0.25, 0.6, 1, 1) if sexe == 'M' else (1, 0.45, 0.75, 1)
+
+        with self.canvas:
+            Color(*sexe_color)
+            self._ell = Ellipse(size=self.size, pos=self.pos)
+        self.bind(size=lambda *a: setattr(self._ell, 'size', self.size),
+                  pos=lambda *a: setattr(self._ell, 'pos', self.pos))
 
         if photo and os.path.exists(photo):
-            # Photo avec masque circulaire via stencil
-            with self.canvas:
-                StencilPush()
-                Color(1, 1, 1, 1)
-                Ellipse(size=self.size, pos=self.pos)
-                StencilUse()
-                self._img_rect = None
-            self.bind(pos=self._update, size=self._update)
-            self._photo = photo
-            self._has_photo = True
-            img = Image(source=photo, allow_stretch=True, keep_ratio=False,
-                        size_hint=(None, None), size=self.size, pos=self.pos)
+            img = Image(source=photo, allow_stretch=True, keep_ratio=True,
+                        size_hint=(None, None), size=(dp(size_dp), dp(size_dp)),
+                        pos_hint={'center_x': 0.5, 'center_y': 0.5})
             self.add_widget(img)
-            with self.canvas:
-                StencilUnUse()
-                StencilPop()
         else:
-            # Cercle coloré avec initiale
-            sexe_color = (0.25, 0.6, 1, 1) if sexe == 'M' else (1, 0.45, 0.75, 1)
-            with self.canvas:
-                Color(*sexe_color)
-                Ellipse(size=self.size, pos=self.pos)
             self.add_widget(Label(
                 text="[b]{}[/b]".format(nom[0].upper()), markup=True,
                 font_size=dp(size_dp * 0.45), color=(1, 1, 1, 1),
                 halign='center', valign='middle'
             ))
-
-    def _update(self, *a):
-        self.canvas.clear()
