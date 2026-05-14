@@ -17,9 +17,13 @@ env/
 venv/
 .env
 
-# SQLite
-*.db
+# SQLite (sauf cenad.db qui contient les donnees initiales)
 *.sqlite
+
+# Charts generes (regeneres automatiquement)
+data/chart_*.png
+data/pie_*.png
+data/export_*.csv
 
 # OS
 .DS_Store

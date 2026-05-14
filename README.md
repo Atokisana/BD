@@ -1,71 +1,113 @@
-# 📱 CENAD App
-**Communauté des Étudiants Natifs d'Andapa à Antsiranana**
+# CENAD App v2.0
+**Communaute des Etudiants Natifs d'Andapa a Antsiranana**
 
-Application Android de gestion des membres développée en Python/Kivy.
+Application Android de gestion des membres developpee en Python/Kivy.
 
 ---
 
-## 🏗 Structure du projet
+## Structure du projet
 
 ```
 cenad_app/
-├── main.py              # Point d'entrée de l'application
-├── db_manager.py        # Gestion SQLite (CRUD + index + SHA-256)
-├── analytics.py         # Statistiques Pandas/NumPy + graphiques Matplotlib
-├── cenad.kv             # Styles globaux Kivy
-├── buildozer.spec       # Configuration compilation APK
+├── main.py                # Point d'entree de l'application
+├── db_manager.py          # Gestion SQLite (CRUD + index + SHA-256)
+├── analytics.py           # Statistiques Pandas/NumPy + graphiques Matplotlib
+├── toast.py               # Systeme de notifications toast
+├── cenad.kv               # Styles globaux Kivy (boutons arrondis, cartes)
+├── buildozer.spec         # Configuration compilation APK (arm + arm64)
 ├── screens/
-│   ├── accueil.py       # Écran d'accueil + navigation
-│   ├── dashboard.py     # Recherche dynamique + statistiques + graphiques
-│   ├── liste_batiment.py  # Membres groupés par bâtiment
-│   ├── liste_promotion.py # Membres groupés par promotion
-│   ├── historique.py    # Historique institutionnel CENAD
-│   ├── etablissements.py  # Établissements universitaires d'Antsiranana
-│   └── admin.py         # Administration CRUD sécurisée
+│   ├── accueil.py         # Ecran d'accueil + menu lateral + navigation
+│   ├── dashboard.py       # Recherche avancee (3 filtres) + statistiques + graphiques
+│   ├── detail_membre.py   # Profil complet d'un membre (nouveau)
+│   ├── liste_batiment.py  # Membres groupes par batiment
+│   ├── liste_promotion.py # Membres groupes par promotion
+│   ├── historique.py      # Historique institutionnel CENAD
+│   ├── etablissements.py  # Etablissements universitaires d'Antsiranana
+│   └── admin.py           # Administration CRUD securisee (avec recherche)
 ├── data/
-│   └── cenad.db         # Base SQLite (créée automatiquement)
+│   └── cenad.db           # Base SQLite (creee automatiquement)
 └── assets/
-    └── logo.png         # Logo CENAD (à ajouter)
+    ├── cenad_icon.png     # Icone application
+    ├── logo.PNG           # Logo CENAD
+    └── icons/             # Icones de navigation
 ```
 
 ---
 
-## ⚡ Optimisations implémentées
+## Nouveautes v2.0
 
-### Base de données
-- Index SQL sur `nom`, `promotion`, `batiment`, `niveau`
-- Requêtes paramétrées (protection injection SQL)
-- Chargement partiel : `SELECT id, nom, sexe... LIMIT 200`
-- Pagination supportée
+### Ecran de detail membre
+- Tap sur un membre dans le Dashboard pour voir son profil complet
+- Avatar avec initiales et couleur selon le sexe
+- Toutes les informations affichees dans des cartes colorees
+- Bouton retour Android supporte
 
-### Mémoire
-- Lazy loading des écrans (`on_enter`)
-- DataFrames Pandas créés uniquement pour l'analyse puis supprimés
-- `plt.close('all')` après chaque graphique
-- Images stockées en chemins, pas en binaire
+### Dashboard ameliore
+- **3 filtres** : Niveau + Batiment + Promotion (valeurs dynamiques depuis la DB)
+- Compteur de resultats en temps reel
+- Graphique camembert pour la repartition par sexe
+- Tap sur un membre pour voir son detail
 
-### Interface
-- Recherche avec debounce 400ms (évite requêtes excessives)
-- Graphiques générés en arrière-plan (`threading`)
-- RecycleView-compatible (BoxLayout avec `size_hint_y=None`)
-- Transitions légères (`SlideTransition(duration=0.2)`)
+### Administration amelioree
+- **Recherche** dans la liste des membres
+- Compteur de membres affiche
+- Champ batiment libre (plus de liste fixe)
+- Validation des donnees (nom obligatoire, telephone valide)
+- **Notifications toast** pour les confirmations (ajout, modification, suppression)
 
-### Android
-- `on_pause()` retourne `True` (économie batterie)
-- `plt.close('all')` dans `on_stop()`
-- Backend Matplotlib : `Agg` (léger, compatible Android)
+### Ameliorations visuelles
+- Boutons arrondis globalement (radius 8dp)
+- Inputs avec coins arrondis
+- Spinners avec design moderne
+- Cartes avec RoundedRectangle et accents colores
+- Touch feedback sur les lignes de membres
+
+### Configuration
+- Support arm64-v8a (en plus de armeabi-v7a)
+- API Android 34
+- Fichier .gitignore corrige (renomme depuis gitignore)
+- Charts generes exclus du git
+- source.exclude_dirs pour __pycache__ et .git
 
 ---
 
-## 🔐 Sécurité
+## Optimisations
 
-| Élément | Valeur |
+### Base de donnees
+- Index SQL sur `nom`, `promotion`, `batiment`, `niveau`
+- Requetes parametrees (protection injection SQL)
+- Chargement partiel : `SELECT ... LIMIT 200`
+- Pagination supportee
+
+### Memoire
+- Lazy loading des ecrans (`on_enter`)
+- DataFrames Pandas crees uniquement pour l'analyse puis supprimes
+- `plt.close('all')` apres chaque graphique
+- Images stockees en chemins, pas en binaire
+
+### Interface
+- Recherche avec debounce 400ms (evite requetes excessives)
+- Graphiques generes en arriere-plan (`threading`)
+- Transitions legeres (`SlideTransition(duration=0.2)`)
+- Notifications toast non-bloquantes
+
+### Android
+- `on_pause()` retourne `True` (economie batterie)
+- `plt.close('all')` dans `on_stop()`
+- Backend Matplotlib : `Agg` (leger, compatible Android)
+- Bouton retour intercepte correctement sur tous les ecrans
+
+---
+
+## Securite
+
+| Element | Valeur |
 |---------|--------|
 | Mot de passe admin | `cenad2024` |
 | Algorithme | SHA-256 |
 | Changer le mot de passe | Modifier `ADMIN_PASSWORD_HASH` dans `db_manager.py` |
 
-Pour générer un nouveau hash :
+Pour generer un nouveau hash :
 ```python
 import hashlib
 print(hashlib.sha256("nouveau_mdp".encode()).hexdigest())
@@ -73,24 +115,23 @@ print(hashlib.sha256("nouveau_mdp".encode()).hexdigest())
 
 ---
 
-## 🚀 Lancement en développement
+## Lancement en developpement
 
 ```bash
-# Installer Kivy
+# Installer les dependances
 pip install kivy pandas numpy matplotlib scipy
 
 # Lancer l'application
-cd cenad_app
 python main.py
 ```
 
 ---
 
-## 📦 Compilation APK avec Buildozer
+## Compilation APK avec Buildozer
 
-### Prérequis (Ubuntu/Debian)
+### Prerequis (Ubuntu/Debian)
 ```bash
-# Dépendances système
+# Dependances systeme
 sudo apt update
 sudo apt install -y python3-pip build-essential git \
     libssl-dev libffi-dev python3-dev \
@@ -108,46 +149,41 @@ export PATH=$JAVA_HOME/bin:$PATH
 
 ### Compilation
 ```bash
-cd cenad_app
-
-# Première compilation (debug, ~15-30 min)
+# Premiere compilation (debug, ~15-30 min)
 buildozer android debug
 
 # APK disponible ici :
-# bin/cenad-1.0.0-armeabi-v7a-debug.apk
+# bin/cenad-2.0.0-armeabi-v7a-debug.apk
+# bin/cenad-2.0.0-arm64-v8a-debug.apk
 
 # Pour release
 buildozer android release
 ```
 
-### Déploiement direct (USB)
+### Deploiement direct (USB)
 ```bash
-# Activer débogage USB sur le téléphone
+# Activer debogage USB sur le telephone
 buildozer android debug deploy run logcat
 ```
 
-### Nettoyage
-```bash
-buildozer android clean
-```
-
 ---
 
-## 📊 Fonctionnalités par écran
+## Fonctionnalites par ecran
 
-| Écran | Fonctionnalités |
+| Ecran | Fonctionnalites |
 |-------|----------------|
-| **Accueil** | Navigation, logo, infos CENAD |
-| **Dashboard** | Recherche temps réel, filtres, stats, graphiques (barres, camembert) |
-| **Bâtiment** | GROUP BY bâtiment, liste détaillée |
-| **Promotion** | GROUP BY promotion, tri par année |
-| **Historique** | Fondation 2012, présidents, mission |
-| **Établissements** | 9 établissements avec mentions et parcours |
-| **Admin** | Login SHA-256, CRUD complet (ajouter/modifier/supprimer) |
+| **Accueil** | Navigation, logo, menu lateral, infos CENAD |
+| **Dashboard** | Recherche temps reel, 3 filtres, stats, graphiques (barres + camembert) |
+| **Detail Membre** | Profil complet, avatar, cartes d'info colorees |
+| **Batiment** | GROUP BY batiment, liste detaillee |
+| **Promotion** | GROUP BY promotion, tri par annee |
+| **Historique** | Fondation 2012, presidents, mission |
+| **Etablissements** | 9 etablissements avec mentions et parcours |
+| **Admin** | Login SHA-256, recherche, CRUD complet, validation, toast |
 
 ---
 
-## 🗄 Schéma base de données
+## Schema base de donnees
 
 ```sql
 CREATE TABLE membres (
@@ -171,9 +207,22 @@ CREATE INDEX idx_niveau    ON membres(niveau);
 
 ---
 
-## 📤 Export données
+## Charte graphique
 
-Dans l'analytics, export CSV disponible :
+| Element | Couleur |
+|---------|---------|
+| Fond principal | `#0D1340` (bleu marine) |
+| Texte principal | Blanc / Bleu clair |
+| Accent | `#FFD700` (or) |
+| Bouton navigation | Bleu-violet varies |
+| Admin | Vert (save), Rouge (delete) |
+| Toast succes | Vert semi-transparent |
+| Toast erreur | Rouge semi-transparent |
+
+---
+
+## Export donnees
+
 ```python
 from analytics import export_csv
 path = export_csv()  # Retourne le chemin du fichier CSV
@@ -181,16 +230,4 @@ path = export_csv()  # Retourne le chemin du fichier CSV
 
 ---
 
-## 🎨 Charte graphique
-
-| Élément | Couleur |
-|---------|---------|
-| Fond principal | `#111B4E` (bleu marine) |
-| Texte principal | Blanc / Bleu clair |
-| Accent | `#FFD700` (or) |
-| Bouton navigation | Bleu-violet variés |
-| Admin | Vert (save), Rouge (delete) |
-
----
-
-*© CENAD 2024 - Fondée en 2012 à Antsiranana, Madagascar*
+**(c) CENAD 2024-2025 | Fondee en 2012 a Antsiranana, Madagascar**

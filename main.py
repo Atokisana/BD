@@ -1,6 +1,6 @@
 """
-main.py - Point d'entrée principal de l'application CENAD
-Corrections : bouton retour Android, clavier persistant, emojis
+main.py - Point d'entree principal de l'application CENAD v2.0
+Ameliorations: ecran detail membre, meilleure navigation, toast
 """
 import os
 import sys
@@ -14,13 +14,11 @@ from kivy.config import Config
 Config.set('graphics', 'width', '360')
 Config.set('graphics', 'height', '640')
 Config.set('graphics', 'resizable', '0')
-# CORRECTION : clavier Android persistant
 Config.set('kivy', 'keyboard_mode', 'systemanddock')
 
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivy.core.window import Window
-from kivy.core.text import LabelBase
 import db_manager as db
 
 
@@ -28,9 +26,8 @@ class CENADApp(App):
     title = "CENAD"
 
     def build(self):
-        Window.clearcolor = (0.07, 0.09, 0.30, 1)
+        Window.clearcolor = (0.05, 0.07, 0.25, 1)
 
-        # CORRECTION : bouton retour Android
         Window.bind(on_keyboard=self._on_keyboard)
 
         db.init_db()
@@ -45,6 +42,7 @@ class CENADApp(App):
         from screens.historique import HistoriqueScreen
         from screens.etablissements import EtablissementsScreen
         from screens.admin import AdminScreen
+        from screens.detail_membre import DetailMembreScreen
 
         sm.add_widget(AccueilScreen(name='accueil'))
         sm.add_widget(DashboardScreen(name='dashboard'))
@@ -53,20 +51,23 @@ class CENADApp(App):
         sm.add_widget(HistoriqueScreen(name='historique'))
         sm.add_widget(EtablissementsScreen(name='etablissements'))
         sm.add_widget(AdminScreen(name='admin'))
+        sm.add_widget(DetailMembreScreen(name='detail_membre'))
 
         sm.current = 'accueil'
         self.sm = sm
         return sm
 
     def _on_keyboard(self, window, key, *args):
-        """CORRECTION : intercepte le bouton retour Android (keycode 27)."""
-        if key == 27:  # Bouton retour Android
+        if key == 27:
             current = self.sm.current
             if current == 'accueil':
-                return False  # Quitte l'app
+                return False
+            elif current == 'detail_membre':
+                self.sm.current = self.sm.previous()
+                return True
             else:
                 self.sm.current = 'accueil'
-                return True  # Consomme l'événement, ne quitte pas
+                return True
         return False
 
     def on_pause(self):

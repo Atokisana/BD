@@ -3,16 +3,41 @@
 <Button>:
     font_size: '13sp'
     bold: True
+    background_normal: ''
+    canvas.before:
+        Color:
+            rgba: self.background_color if self.background_color else (0.2, 0.3, 0.7, 1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(8)]
 
 <TextInput>:
     background_active: ''
-    padding: [10, 10, 10, 10]
+    padding: [dp(12), dp(10), dp(12), dp(10)]
+    font_size: '13sp'
+    canvas.before:
+        Color:
+            rgba: (0.15, 0.2, 0.45, 1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(8)]
 
 <Spinner>:
     option_cls: 'SpinnerOption'
+    background_normal: ''
+    canvas.before:
+        Color:
+            rgba: self.background_color if self.background_color else (0.2, 0.3, 0.7, 1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [dp(8)]
 
 <SpinnerOption>:
     background_color: 0.12, 0.18, 0.45, 1
+    background_normal: ''
     color: 1, 1, 1, 1
     font_size: '12sp'
-    height: '44dp'
+    height: '48dp'
