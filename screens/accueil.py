@@ -30,12 +30,12 @@ def get_asset_path(filename):
 
 # Icones en texte Unicode (compatibles Android sans emoji)
 NAV_ITEMS = [
-    ("  [b]Dashboard[/b]\n  Tableau de bord",     "dashboard",      (0.09, 0.40, 0.78, 1)),
-    ("  [b]Batiment[/b]\n  Liste par batiment",    "liste_batiment", (0.11, 0.37, 0.13, 1)),
-    ("  [b]Promotion[/b]\n  Liste par promotion",  "liste_promotion",(0.29, 0.08, 0.55, 1)),
-    ("  [b]Historique[/b]\n  Historique CENAD",    "historique",     (0.75, 0.21, 0.05, 1)),
-    ("  [b]Etablissements[/b]\n  Universites",     "etablissements", (0.00, 0.38, 0.39, 1)),
-    ("  [b]Administration[/b]\n  Espace admin",    "admin",          (0.22, 0.28, 0.36, 1)),
+    ("  [b]Dashboard[/b]\n  Statistiques et recherche",  "dashboard",      (0.09, 0.40, 0.78, 1)),
+    ("  [b]Batiment[/b]\n  Membres par batiment",      "liste_batiment", (0.11, 0.37, 0.13, 1)),
+    ("  [b]Promotion[/b]\n  Membres par promotion",    "liste_promotion",(0.29, 0.08, 0.55, 1)),
+    ("  [b]Historique[/b]\n  Histoire de la CENAD",    "historique",     (0.75, 0.21, 0.05, 1)),
+    ("  [b]Etablissements[/b]\n  9 universites",       "etablissements", (0.00, 0.38, 0.39, 1)),
+    ("  [b]Administration[/b]\n  Gestion membres",    "admin",          (0.22, 0.28, 0.36, 1)),
 ]
 
 # Icones SVG-like dessinées avec Canvas (barres colorées à gauche du texte)
@@ -177,7 +177,7 @@ class AccueilScreen(Screen):
 
         # Footer
         inner.add_widget(Label(
-            text="(c) CENAD 2024  |  Fondee en 2012",
+            text="(c) CENAD 2024-2025  |  v2.0  |  Fondee en 2012",
             font_size=dp(10), color=(0.35, 0.45, 0.65, 0.8),
             size_hint_y=None, height=dp(32), halign='center'
         ))
@@ -413,7 +413,7 @@ class SideMenuPanel(BoxLayout):
 
         # Footer
         footer = Label(
-            text="v1.0.0  |  CENAD 2024",
+            text="v2.0.0  |  CENAD 2025",
             font_size=dp(10), color=(0.3, 0.4, 0.6, 0.7),
             size_hint_y=None, height=dp(36)
         )
